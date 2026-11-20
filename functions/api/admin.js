@@ -261,11 +261,10 @@ export async function onRequestPost(context) {
       );
     }
 
-    // 2. Full Update Operative Details (Name, Company, Role, Trade, PIN)
+    // 2. Full Update Operative Details (Name, Company, Role, Trade)
     if (action === "update_operative") {
       const { id, name, company = "Three Eagles Ltd", role = "Operative", trade = "General", pin } = body;
       const cleanName = (name || "").trim();
-      const cleanPin = String(pin || "").trim();
 
       if (!id) {
         return new Response(
@@ -281,11 +280,12 @@ export async function onRequestPost(context) {
         );
       }
 
-      if (!/^\d{4}$/.test(cleanPin)) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Operative PIN must be exactly 4 digits (e.g. 1234)." }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
+      let cleanPin = "1234";
+      if (pin && /^\d{4}$/.test(String(pin).trim())) {
+        cleanPin = String(pin).trim();
+      } else {
+        const existing = await db.prepare("SELECT pin FROM operatives WHERE id = ?").bind(id).first();
+        if (existing && existing.pin) cleanPin = existing.pin;
       }
 
       await db
@@ -306,7 +306,7 @@ export async function onRequestPost(context) {
         JSON.stringify({
           success: true,
           message: `Operative details for ${cleanName} updated successfully.`,
-          data: { id, name: cleanName, company, role, trade, pin: cleanPin },
+          data: { id, name: cleanName, company, role, trade },
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );

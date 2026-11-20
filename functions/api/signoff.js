@@ -76,7 +76,6 @@ export async function onRequestPost(context) {
     const {
       doc_code,
       operative_id,
-      pin,
       scrolled_to_bottom,
       answer_index,
       notes = "",
@@ -107,7 +106,7 @@ export async function onRequestPost(context) {
 
     const briefingWeek = tbt.briefing_week || "Week 1";
 
-    // 2. Validate operative_id & 4-digit PIN
+    // 2. Validate operative_id
     if (!operative_id) {
       return new Response(
         JSON.stringify({ success: false, error: "Please select an operative." }),
@@ -116,7 +115,7 @@ export async function onRequestPost(context) {
     }
 
     const operative = await db
-      .prepare("SELECT id, name, company, pin FROM operatives WHERE id = ? AND active = 1")
+      .prepare("SELECT id, name, company FROM operatives WHERE id = ? AND active = 1")
       .bind(operative_id)
       .first();
 
@@ -124,20 +123,6 @@ export async function onRequestPost(context) {
       return new Response(
         JSON.stringify({ success: false, error: "Operative profile not found or inactive." }),
         { status: 404, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // PIN Authentication Check (returns HTTP 401 if wrong)
-    const submittedPin = String(pin || "").trim();
-    const storedPin = String(operative.pin || "1234").trim();
-
-    if (!submittedPin || submittedPin !== storedPin) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Incorrect 4-digit operative PIN. Please verify your PIN with your site supervisor.",
-        }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
 

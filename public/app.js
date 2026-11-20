@@ -50,10 +50,9 @@
     comprehensionOptionsContainer: document.getElementById("comprehension-options-container"),
     comprehensionFeedback: document.getElementById("comprehension-feedback"),
 
-    // Step 2: Operative & PIN
+    // Step 2: Operative Profile
     stepOperative: document.getElementById("step-operative"),
     operativeSelect: document.getElementById("operative-select"),
-    operativePin: document.getElementById("operative-pin"),
     operativeCompany: document.getElementById("operative-company"),
     btnQuickAddOperative: document.getElementById("btn-quick-add-operative"),
 
@@ -80,7 +79,6 @@
     newOpCompany: document.getElementById("new-op-company"),
     newOpRole: document.getElementById("new-op-role"),
     newOpTrade: document.getElementById("new-op-trade"),
-    newOpPin: document.getElementById("new-op-pin"),
 
     modalSuccessReceipt: document.getElementById("modal-success-receipt"),
     receiptOpName: document.getElementById("receipt-op-name"),
@@ -90,6 +88,7 @@
     receiptBriefingWeek: document.getElementById("receipt-briefing-week"),
     receiptTimestamp: document.getElementById("receipt-timestamp"),
     receiptCompany: document.getElementById("receipt-company"),
+    btnCloseReceipt: document.getElementById("btn-close-receipt"),
     btnDoneNextOp: document.getElementById("btn-done-next-op"),
 
     toastContainer: document.getElementById("toast-container"),
@@ -483,18 +482,6 @@
       if (selected && selected.dataset.company) {
         elements.operativeCompany.value = selected.dataset.company;
       }
-      if (elements.operativeSelect.value) {
-        elements.operativePin.disabled = false;
-        elements.operativePin.focus();
-      } else {
-        elements.operativePin.disabled = true;
-      }
-      updateSubmitButtonState();
-    });
-
-    // 4-Digit PIN input filter
-    elements.operativePin.addEventListener("input", (e) => {
-      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4);
       updateSubmitButtonState();
     });
 
@@ -511,10 +498,19 @@
     elements.btnSaveNewOp.addEventListener("click", handleSaveNewOperative);
     elements.btnSubmitSignoff.addEventListener("click", handleSubmitSignoff);
 
-    elements.btnDoneNextOp.addEventListener("click", () => {
-      elements.modalSuccessReceipt.classList.remove("active");
-      resetForNextOperative();
-    });
+    if (elements.btnCloseReceipt) {
+      elements.btnCloseReceipt.addEventListener("click", () => {
+        elements.modalSuccessReceipt.classList.remove("active");
+        resetForNextOperative();
+      });
+    }
+
+    if (elements.btnDoneNextOp) {
+      elements.btnDoneNextOp.addEventListener("click", () => {
+        elements.modalSuccessReceipt.classList.remove("active");
+        resetForNextOperative();
+      });
+    }
   }
 
   function handleOptionSelected(answerIndex) {
@@ -563,7 +559,6 @@
 
       elements.stepOperative.classList.add("step-locked");
       elements.operativeSelect.disabled = true;
-      elements.operativePin.disabled = true;
       elements.stepNotes.classList.add("step-locked");
       elements.tbtNotes.disabled = true;
       elements.stepSignature.classList.add("step-locked");
@@ -574,14 +569,11 @@
 
   function updateSubmitButtonState() {
     const hasOperative = Boolean(elements.operativeSelect.value);
-    const pinVal = (elements.operativePin.value || "").trim();
-    const hasValidPin = /^\d{4}$/.test(pinVal);
 
     const canSubmit =
       state.scrolledToBottom &&
       state.comprehensionPassed &&
       hasOperative &&
-      hasValidPin &&
       state.hasSignature &&
       !state.isSubmitting;
 
@@ -593,11 +585,6 @@
     const company = elements.newOpCompany.value.trim() || "Three Eagles Ltd";
     const role = elements.newOpRole.value.trim() || "Operative";
     const trade = elements.newOpTrade.value.trim() || "General Labour";
-    let pin = elements.newOpPin.value.trim() || "1234";
-
-    if (!/^\d{4}$/.test(pin)) {
-      pin = "1234";
-    }
 
     if (!name) {
       showToast("Please enter operative full name.", "error");
@@ -612,7 +599,7 @@
       const res = await fetch("/api/operatives", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, company, role, trade, pin }),
+        body: JSON.stringify({ name, company, role, trade }),
       });
       const json = await res.json();
 
@@ -626,14 +613,11 @@
       elements.newOpName.value = "";
       elements.newOpRole.value = "";
       elements.newOpTrade.value = "";
-      elements.newOpPin.value = "";
 
       await loadOperatives();
       if (json.data && json.data.id) {
         elements.operativeSelect.value = json.data.id;
         elements.operativeCompany.value = company;
-        elements.operativePin.disabled = false;
-        elements.operativePin.value = pin;
       }
       updateSubmitButtonState();
     } catch (err) {
@@ -649,7 +633,6 @@
     if (elements.btnSubmitSignoff.disabled) return;
 
     const operativeId = elements.operativeSelect.value;
-    const pin = elements.operativePin.value.trim();
     const docCode = state.currentTbt.doc_code;
     const notes = elements.tbtNotes.value.trim();
     const signaturePng = elements.signatureCanvas.toDataURL("image/png");
@@ -670,7 +653,6 @@
         body: JSON.stringify({
           doc_code: docCode,
           operative_id: parseInt(operativeId, 10),
-          pin: pin,
           scrolled_to_bottom: true,
           answer_index: state.selectedAnswerIndex,
           notes: notes,
@@ -682,10 +664,6 @@
 
       if (!json.success) {
         showToast(json.error || "Submission failed.", "error");
-        if (res.status === 401) {
-          elements.operativePin.focus();
-          elements.operativePin.select();
-        }
         return;
       }
 
@@ -739,8 +717,6 @@
     elements.stepOperative.classList.add("step-locked");
     elements.operativeSelect.value = "";
     elements.operativeSelect.disabled = true;
-    elements.operativePin.value = "";
-    elements.operativePin.disabled = true;
 
     elements.stepNotes.classList.add("step-locked");
     elements.tbtNotes.value = "";
@@ -754,7 +730,6 @@
 
   function resetForNextOperative() {
     elements.operativeSelect.value = "";
-    elements.operativePin.value = "";
     elements.tbtNotes.value = "";
     clearSignature();
     elements.operativeSelect.focus();

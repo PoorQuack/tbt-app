@@ -77,7 +77,6 @@
     editOpCompany: document.getElementById("edit-op-company"),
     editOpRole: document.getElementById("edit-op-role"),
     editOpTrade: document.getElementById("edit-op-trade"),
-    editOpPin: document.getElementById("edit-op-pin"),
     btnCloseEditOp: document.getElementById("btn-close-edit-op"),
     btnCancelEditOp: document.getElementById("btn-cancel-edit-op"),
     btnSaveEditOp: document.getElementById("btn-save-edit-op"),
@@ -112,7 +111,6 @@
     adminOpCompany: document.getElementById("admin-op-company"),
     adminOpRole: document.getElementById("admin-op-role"),
     adminOpTrade: document.getElementById("admin-op-trade"),
-    adminOpPin: document.getElementById("admin-op-pin"),
 
     toastContainer: document.getElementById("toast-container"),
   };
@@ -514,7 +512,7 @@
     if (outstanding.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="6" style="text-align: center; color: var(--success); font-weight: 700; padding: 2rem;">
+          <td colspan="5" style="text-align: center; color: var(--success); font-weight: 700; padding: 2rem;">
             ✓ All active site operatives have successfully completed sign-off for ${escapeHtml(tbt.doc_code)} (${escapeHtml(tbt.briefing_week)})!
           </td>
         </tr>
@@ -530,7 +528,6 @@
         <td>${escapeHtml(op.role || "Operative")}</td>
         <td>${escapeHtml(op.trade || "General")}</td>
         <td><span style="color: var(--danger); font-weight: 700;">Not Signed</span></td>
-        <td><code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${escapeHtml(op.pin || "1234")}</code></td>
       `;
       tbody.appendChild(tr);
     });
@@ -553,10 +550,10 @@
     text += `The following ${outstanding.length} operative(s) must complete their mandatory Toolbox Talk sign-off today:\n`;
 
     outstanding.forEach((op, idx) => {
-      text += `${idx + 1}. ${op.name} (${op.role || 'Operative'}, ${op.company}) - PIN: ${op.pin || '1234'}\n`;
+      text += `${idx + 1}. ${op.name} (${op.role || 'Operative'}, ${op.company})\n`;
     });
 
-    text += `\n📲 *Sign off online now:* https://tbt-app-5tv.pages.dev\n`;
+    text += `\n📲 *Sign off online now:* ${window.location.origin}\n`;
     text += `(Scroll to read the talk, answer comprehension check, and sign with finger)`;
 
     navigator.clipboard.writeText(text).then(
@@ -771,18 +768,13 @@
         <td>${escapeHtml(op.role || "Operative")}</td>
         <td>${escapeHtml(op.trade || "General")}</td>
         <td>
-          <code style="background: #fef08a; padding: 2px 6px; border-radius: 4px; font-weight: 700; color: #854d0e;">
-            ${escapeHtml(op.pin || "1234")}
-          </code>
-        </td>
-        <td>
           <span style="font-weight: 700; color: ${op.active ? "var(--success)" : "var(--danger)"};">
             ${op.active ? "Active" : "Inactive"}
           </span>
         </td>
         <td>
           <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
-            <button type="button" class="sig-btn btn-edit-op" data-id="${op.id}" data-name="${escapeHtml(op.name)}" data-company="${escapeHtml(op.company)}" data-role="${escapeHtml(op.role || 'Operative')}" data-trade="${escapeHtml(op.trade || 'General')}" data-pin="${escapeHtml(op.pin || '1234')}">
+            <button type="button" class="sig-btn btn-edit-op" data-id="${op.id}" data-name="${escapeHtml(op.name)}" data-company="${escapeHtml(op.company)}" data-role="${escapeHtml(op.role || 'Operative')}" data-trade="${escapeHtml(op.trade || 'General')}">
               Edit
             </button>
             <button type="button" class="sig-btn btn-toggle-op" data-id="${op.id}" data-active="${op.active}">
@@ -804,7 +796,6 @@
         elements.editOpCompany.value = btn.dataset.company;
         elements.editOpRole.value = btn.dataset.role;
         elements.editOpTrade.value = btn.dataset.trade;
-        elements.editOpPin.value = btn.dataset.pin;
         elements.modalEditOperative.classList.add("active");
         elements.editOpName.focus();
       });
@@ -835,17 +826,10 @@
     const company = elements.editOpCompany.value.trim() || "Three Eagles Ltd";
     const role = elements.editOpRole.value.trim() || "Operative";
     const trade = elements.editOpTrade.value.trim() || "General Labour";
-    const pin = elements.editOpPin.value.trim();
 
     if (!name) {
       showToast("Operative full name is required.", "error");
       elements.editOpName.focus();
-      return;
-    }
-
-    if (!/^\d{4}$/.test(pin)) {
-      showToast("Operative PIN must be exactly 4 digits (e.g. 1234).", "error");
-      elements.editOpPin.focus();
       return;
     }
 
@@ -860,7 +844,6 @@
           company,
           role,
           trade,
-          pin,
         }),
       });
       const json = await res.json();
@@ -931,9 +914,7 @@
     const company = elements.adminOpCompany.value.trim() || "Three Eagles Ltd";
     const role = elements.adminOpRole.value.trim() || "Operative";
     const trade = elements.adminOpTrade.value.trim() || "General Labour";
-    let pin = elements.adminOpPin.value.trim() || "1234";
 
-    if (!/^\d{4}$/.test(pin)) pin = "1234";
     if (!name) {
       showToast("Name is required.", "error");
       return;
@@ -949,7 +930,6 @@
           company,
           role,
           trade,
-          pin,
         }),
       });
       const json = await res.json();

@@ -94,7 +94,7 @@
         <button type="button" class="tab-btn active" data-tab="tab-register">Official A4 Register (Print / PDF)</button>
         <button type="button" class="tab-btn" data-tab="tab-outstanding">Outstanding Operatives (WhatsApp)</button>
         <button type="button" class="tab-btn" data-tab="tab-audit">Immutable Audit Log</button>
-        <button type="button" class="tab-btn" data-tab="tab-operatives">Operatives Directory & PINs</button>
+        <button type="button" class="tab-btn" data-tab="tab-operatives">Operatives Directory</button>
         <button type="button" class="tab-btn" data-tab="tab-tbts">TBT Document Library</button>
       </nav>
 
@@ -213,7 +213,6 @@
                 <th>Role</th>
                 <th>Trade</th>
                 <th>Current Status</th>
-                <th>Assigned PIN</th>
               </tr>
             </thead>
             <tbody id="outstanding-table-body">
@@ -262,11 +261,11 @@
         </div>
       </section>
 
-      <!-- TAB 4: OPERATIVES DIRECTORY & PIN MANAGEMENT -->
+      <!-- TAB 4: OPERATIVES DIRECTORY -->
       <section id="tab-operatives" class="tab-content" style="display: none;">
         <div class="selector-bar">
           <div style="font-weight: 700; color: var(--secondary);">
-            Site Operatives Roster & PIN Security
+            Site Operatives Roster
           </div>
           <button type="button" id="btn-admin-add-op" class="btn-submit" style="width: auto; min-height: 38px; padding: 0.4rem 1rem; font-size: 0.85rem;">
             + Add New Operative
@@ -282,7 +281,6 @@
                 <th>Company</th>
                 <th>Role</th>
                 <th>Trade</th>
-                <th>4-Digit PIN</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -368,11 +366,6 @@
           <div class="form-group" style="margin-bottom: 0.85rem;">
             <label for="edit-op-trade">Trade</label>
             <input type="text" id="edit-op-trade" class="form-control" placeholder="e.g. General Labour, Carpentry">
-          </div>
-          <div class="form-group">
-            <label for="edit-op-pin">4-Digit Security PIN *</label>
-            <input type="text" id="edit-op-pin" class="form-control" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="e.g. 1234" required>
-            <small style="color: var(--text-muted); margin-top: 0.25rem;">Must be exactly 4 numerical digits.</small>
           </div>
         </form>
       </div>
@@ -489,10 +482,6 @@
           <div class="form-group" style="margin-bottom: 0.85rem;">
             <label for="admin-op-trade">Trade</label>
             <input type="text" id="admin-op-trade" class="form-control" placeholder="e.g. General, Finishing">
-          </div>
-          <div class="form-group">
-            <label for="admin-op-pin">Assign 4-Digit Security PIN</label>
-            <input type="text" id="admin-op-pin" class="form-control" maxlength="4" pattern="\d{4}" value="1234">
           </div>
         </form>
       </div>

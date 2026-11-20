@@ -178,12 +178,6 @@
             </div>
 
             <div class="form-group">
-              <label for="operative-pin">4-Digit Security PIN *</label>
-              <input type="password" id="operative-pin" class="form-control" placeholder="Enter 4-digit PIN" inputmode="numeric" pattern="\d{4}" maxlength="4" autocomplete="off" disabled>
-              <small style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Enter your personal 4-digit PIN. Contact your supervisor if you need a reset.</small>
-            </div>
-
-            <div class="form-group" style="grid-column: 1 / -1;">
               <label for="operative-company">Company / Subcontractor *</label>
               <input type="text" id="operative-company" class="form-control" value="Three Eagles Ltd" readonly>
             </div>
@@ -233,7 +227,7 @@
         <div class="step-block">
           <div class="legal-declaration-box">
             <strong>UK Health & Safety at Work etc. Act 1974 Declaration:</strong><br>
-            I confirm that I have reviewed the entirety of this Toolbox Talk (<span id="declaration-doc-code">...</span> - <span id="declaration-doc-week">Week 1</span>), have answered the comprehension check, entered my PIN, had the opportunity to raise questions, and agree to strictly follow all site safety procedures.
+            I confirm that I have reviewed the entirety of this Toolbox Talk (<span id="declaration-doc-code">...</span> - <span id="declaration-doc-week">Week 1</span>), have answered the comprehension check, had the opportunity to raise questions, and agree to strictly follow all site safety procedures.
           </div>
 
           <button type="button" id="btn-submit-signoff" class="btn-submit" disabled>
@@ -274,10 +268,6 @@
             <label for="new-op-trade">Trade</label>
             <input type="text" id="new-op-trade" class="form-control" placeholder="e.g. General Labour, Carpentry">
           </div>
-          <div class="form-group">
-            <label for="new-op-pin">Choose 4-Digit Security PIN</label>
-            <input type="password" id="new-op-pin" class="form-control" placeholder="Enter 4-digit PIN" inputmode="numeric" maxlength="4">
-          </div>
         </form>
       </div>
       <div class="modal-footer">
@@ -316,12 +306,12 @@
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-          <button type="button" id="btn-done-next-op" class="btn-submit" style="width: 100%;">
-            Sign Off Next Operative
+          <button type="button" id="btn-close-receipt" class="btn-submit" style="width: 100%;">
+            Done
           </button>
-          <a href="admin.html" class="sig-btn" style="text-align: center; justify-content: center; text-decoration: none; padding: 0.75rem;">
-            Go to Admin & View Official Register
-          </a>
+          <button type="button" id="btn-done-next-op" class="sig-btn" style="text-align: center; justify-content: center; padding: 0.75rem;">
+            Sign Off Another Operative
+          </button>
         </div>
       </div>
     </div>
