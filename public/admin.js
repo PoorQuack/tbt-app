@@ -1,6 +1,6 @@
 // public/admin.js
-// Admin Dashboard & Official A4 Sign-Off Register Generator
-// Features: Strict header auth (X-Admin-PIN), dynamic TBT dropdowns, outstanding operatives & WhatsApp reminder, PIN resets, cycle management
+// Cloudflare Pages Client Logic: Role-based Supervisor Portal & Delegated Company Coordinator Dashboard
+// Features: Super Admin / Company Admin roles, company scoping, A4 Print Preview, A4 Register generator, client-side PDF.js parser
 
 (function () {
   "use strict";
@@ -12,23 +12,30 @@
   }
 
   let adminPin = sessionStorage.getItem("tbt_admin_pin") || "";
+  let currentUser = null; // { role: "super_admin" | "company_admin", account_name, company }
   let currentTab = "tab-register";
   let cachedRecords = [];
   let cachedTbts = [];
+  let cachedCompanies = [];
   let currentOutstandingData = null;
-  let editingOpId = null;
   let editingTbtId = null;
+  let editingOpId = null;
 
   // DOM Elements
   const elements = {
     authGateCard: document.getElementById("auth-gate-card"),
-    adminPortalView: document.getElementById("admin-portal-view"),
     formAuthPin: document.getElementById("form-auth-pin"),
     adminPinInput: document.getElementById("admin-pin-input"),
-    btnSubmitPin: document.getElementById("btn-submit-pin"),
     btnTogglePin: document.getElementById("btn-toggle-pin"),
+    btnSubmitPin: document.getElementById("btn-submit-pin"),
     authPinError: document.getElementById("auth-pin-error"),
+
+    adminPortalView: document.getElementById("admin-portal-view"),
+    adminAuthBadge: document.getElementById("admin-auth-badge"),
+    siteHeaderSubtitle: document.getElementById("site-header-subtitle"),
     btnLogout: document.getElementById("btn-logout"),
+    tabBtns: document.querySelectorAll(".tab-btn"),
+    tabContents: document.querySelectorAll(".tab-content"),
 
     // Stats
     statTotalSignoffs: document.getElementById("stat-total-signoffs"),
@@ -36,17 +43,18 @@
     statTotalOperatives: document.getElementById("stat-total-operatives"),
     statTotalTbts: document.getElementById("stat-total-tbts"),
 
-    // Tabs
-    tabBtns: document.querySelectorAll(".tab-btn"),
-    tabContents: document.querySelectorAll(".tab-content"),
-
-    // Register Tab
+    // Tab 1: Register
     filterRegisterTbt: document.getElementById("filter-register-tbt"),
+    filterRegisterCompany: document.getElementById("filter-register-company"),
+    groupFilterRegisterCompany: document.getElementById("group-filter-register-company"),
     filterRegisterWeek: document.getElementById("filter-register-week"),
     filterRegisterDate: document.getElementById("filter-register-date"),
     btnRefreshRegister: document.getElementById("btn-refresh-register"),
+    btnPreviewRegister: document.getElementById("btn-preview-register"),
     btnPrintRegister: document.getElementById("btn-print-register"),
+    printableRegisterContainer: document.getElementById("printable-register-container"),
     printSubTitle: document.getElementById("print-sub-title"),
+    printSiteName: document.getElementById("print-site-name"),
     printSubWeek: document.getElementById("print-sub-week"),
     registerTableBody: document.getElementById("register-table-body"),
     printFooterOwner: document.getElementById("print-footer-owner"),
@@ -54,29 +62,43 @@
     printFooterLr: document.getElementById("print-footer-lr"),
     printFooterNr: document.getElementById("print-footer-nr"),
 
-    // Outstanding Tab
+    // Tab 2: Outstanding
     filterOutstandingTbt: document.getElementById("filter-outstanding-tbt"),
+    filterOutstandingCompany: document.getElementById("filter-outstanding-company"),
+    groupFilterOutstandingCompany: document.getElementById("group-filter-outstanding-company"),
     outstandingComplianceSummary: document.getElementById("outstanding-compliance-summary"),
     btnCopyReminderList: document.getElementById("btn-copy-reminder-list"),
     outstandingTableBody: document.getElementById("outstanding-table-body"),
 
-    // Audit Tab
+    // Tab 3: Audit Log
     btnExportCsv: document.getElementById("btn-export-csv"),
     auditTableBody: document.getElementById("audit-table-body"),
-
-    // Operatives Tab
-    btnAdminAddOp: document.getElementById("btn-admin-add-op"),
-    operativesTableBody: document.getElementById("operatives-table-body"),
-
-    // TBTs Tab
-    btnAdminAddTbt: document.getElementById("btn-admin-add-tbt"),
-    tbtsTableBody: document.getElementById("tbts-table-body"),
-
-    // Modals
     modalAuditDetail: document.getElementById("modal-audit-detail"),
     auditDetailContent: document.getElementById("audit-detail-content"),
     btnCloseAuditModal: document.getElementById("btn-close-audit-modal"),
     btnCloseAuditModal2: document.getElementById("btn-close-audit-modal2"),
+
+    // Tab 4: Operatives Directory
+    filterOperativesCompany: document.getElementById("filter-operatives-company"),
+    groupFilterOperativesCompany: document.getElementById("group-filter-operatives-company"),
+    operativesTableBody: document.getElementById("operatives-table-body"),
+    btnAdminAddOp: document.getElementById("btn-admin-add-op"),
+
+    // Tab 5: TBT Document Library
+    tbtsTableBody: document.getElementById("tbts-table-body"),
+    btnAdminAddTbt: document.getElementById("btn-admin-add-tbt"),
+
+    // Tab 6: Companies & Accounts
+    companiesTableBody: document.getElementById("companies-table-body"),
+    accountsTableBody: document.getElementById("accounts-table-body"),
+    btnAdminAddCompany: document.getElementById("btn-admin-add-company"),
+    btnAdminAddAccount: document.getElementById("btn-admin-add-account"),
+
+    // Modals
+    modalPrintPreview: document.getElementById("modal-print-preview"),
+    printPreviewContent: document.getElementById("print-preview-content"),
+    btnPrintFromPreview: document.getElementById("btn-print-from-preview"),
+    btnClosePrintPreview: document.getElementById("btn-close-print-preview"),
 
     modalEditOperative: document.getElementById("modal-edit-operative"),
     editOpName: document.getElementById("edit-op-name"),
@@ -128,6 +150,23 @@
     adminOpRole: document.getElementById("admin-op-role"),
     adminOpTrade: document.getElementById("admin-op-trade"),
 
+    modalAddCompany: document.getElementById("modal-add-company"),
+    btnCloseAddCompany: document.getElementById("btn-close-add-company"),
+    btnCancelAddCompany: document.getElementById("btn-cancel-add-company"),
+    btnSaveNewCompany: document.getElementById("btn-save-new-company"),
+    formAddCompany: document.getElementById("form-add-company"),
+    newCompanyName: document.getElementById("new-company-name"),
+    newCompanyOrder: document.getElementById("new-company-order"),
+
+    modalAddAccount: document.getElementById("modal-add-account"),
+    btnCloseAddAccount: document.getElementById("btn-close-add-account"),
+    btnCancelAddAccount: document.getElementById("btn-cancel-add-account"),
+    btnSaveNewAccount: document.getElementById("btn-save-new-account"),
+    formAddAccount: document.getElementById("form-add-account"),
+    newAccName: document.getElementById("new-acc-name"),
+    newAccCompany: document.getElementById("new-acc-company"),
+    newAccPin: document.getElementById("new-acc-pin"),
+
     toastContainer: document.getElementById("toast-container"),
   };
 
@@ -153,12 +192,12 @@
   }
 
   // --------------------------------------------------------------------------
-  // Header-Only Authentication
+  // Header-Only Authentication & Role Adapting
   // --------------------------------------------------------------------------
   async function verifyAndLogin(pin) {
     const cleanPin = (pin || "").trim();
     if (!cleanPin) {
-      showAuthError("Please enter the Supervisor Security PIN.");
+      showAuthError("Please enter your Access PIN.");
       return;
     }
 
@@ -186,7 +225,7 @@
         showAuthError(
           json.error && !json.error.includes("Header authentication")
             ? json.error
-            : "Incorrect Supervisor PIN. Please check and try again."
+            : "Incorrect PIN. Please verify and try again."
         );
         if (elements.btnSubmitPin) {
           elements.btnSubmitPin.disabled = false;
@@ -207,6 +246,8 @@
     // Success!
     adminPin = cleanPin;
     sessionStorage.setItem("tbt_admin_pin", cleanPin);
+    currentUser = json.data.auth || { role: "super_admin", account_name: "Principal Site Admin", company: null };
+
     elements.authGateCard.style.display = "none";
     elements.adminPortalView.style.display = "block";
     elements.btnLogout.style.display = "inline-flex";
@@ -216,14 +257,62 @@
       elements.btnSubmitPin.textContent = "Authenticate & Access";
     }
 
+    applyRoleRestrictions();
+
     try {
       if (json.data && json.data.stats) {
         renderStats(json.data.stats);
       }
+      await loadCompaniesList();
       await loadDynamicTbts();
-      loadTabContent(currentTab);
+      switchTab(currentTab);
     } catch (renderErr) {
       console.error("Error loading initial dashboard content:", renderErr);
+    }
+  }
+
+  function applyRoleRestrictions() {
+    if (!currentUser) return;
+
+    if (currentUser.role === "company_admin") {
+      // Company Coordinator View
+      elements.adminAuthBadge.style.display = "inline-block";
+      elements.adminAuthBadge.textContent = `Company Portal: ${currentUser.company} (${currentUser.account_name})`;
+      elements.siteHeaderSubtitle.textContent = `${currentUser.company} • AGC South Site Records`;
+
+      // Hide tabs restricted to super_admin
+      elements.tabBtns.forEach((btn) => {
+        if (btn.dataset.role === "super_admin") {
+          btn.style.display = "none";
+        } else {
+          btn.style.display = "inline-flex";
+        }
+      });
+
+      // Hide company filter dropdowns (company is strictly locked)
+      if (elements.groupFilterRegisterCompany) elements.groupFilterRegisterCompany.style.display = "none";
+      if (elements.groupFilterOutstandingCompany) elements.groupFilterOutstandingCompany.style.display = "none";
+      if (elements.groupFilterOperativesCompany) elements.groupFilterOperativesCompany.style.display = "none";
+
+      // If user is on a restricted tab, fall back to register
+      if (["tab-audit", "tab-tbts", "tab-companies"].includes(currentTab)) {
+        currentTab = "tab-register";
+      }
+    } else {
+      // Principal Super Admin View
+      elements.adminAuthBadge.style.display = "inline-block";
+      elements.adminAuthBadge.textContent = "Principal Site Admin (Full Site Access)";
+      elements.siteHeaderSubtitle.textContent = "Three Eagles Ltd • AGC South Site Records";
+
+      // Show all tabs
+      elements.tabBtns.forEach((btn) => {
+        btn.style.display = "inline-flex";
+      });
+
+      // Show company filter dropdowns
+      if (elements.groupFilterRegisterCompany) elements.groupFilterRegisterCompany.style.display = "block";
+      if (elements.groupFilterOutstandingCompany) elements.groupFilterOutstandingCompany.style.display = "block";
+      if (elements.groupFilterOperativesCompany) elements.groupFilterOperativesCompany.style.display = "block";
     }
   }
 
@@ -235,15 +324,82 @@
   function handleLogout() {
     sessionStorage.removeItem("tbt_admin_pin");
     adminPin = "";
+    currentUser = null;
     elements.adminPortalView.style.display = "none";
     elements.authGateCard.style.display = "block";
     elements.btnLogout.style.display = "none";
+    elements.adminAuthBadge.style.display = "none";
     elements.adminPinInput.value = "";
     elements.authPinError.style.display = "none";
   }
 
   // --------------------------------------------------------------------------
-  // Load Dynamic TBT Dropdowns
+  // Dynamic Companies Loading & Dropdowns
+  // --------------------------------------------------------------------------
+  async function loadCompaniesList() {
+    try {
+      const res = await fetch("/api/companies");
+      const json = await res.json();
+      if (json.success && json.data) {
+        cachedCompanies = json.data;
+        populateCompanyDropdowns();
+      }
+    } catch (err) {
+      console.error("Error loading companies list:", err);
+    }
+  }
+
+  function populateCompanyDropdowns() {
+    const filterDropdowns = [
+      elements.filterRegisterCompany,
+      elements.filterOutstandingCompany,
+      elements.filterOperativesCompany,
+    ];
+
+    filterDropdowns.forEach((dropdown) => {
+      if (!dropdown) return;
+      const current = dropdown.value;
+      dropdown.innerHTML = '<option value="">All Site Companies</option>';
+      cachedCompanies.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.name;
+        opt.textContent = c.name + (c.is_default ? " (Principal)" : "");
+        dropdown.appendChild(opt);
+      });
+      if (current) dropdown.value = current;
+    });
+
+    // Populate Modals Company Dropdowns
+    const formDropdowns = [
+      elements.adminOpCompany,
+      elements.editOpCompany,
+      elements.newAccCompany,
+    ];
+
+    formDropdowns.forEach((dropdown) => {
+      if (!dropdown) return;
+      dropdown.innerHTML = "";
+      if (currentUser && currentUser.role === "company_admin") {
+        const opt = document.createElement("option");
+        opt.value = currentUser.company;
+        opt.textContent = currentUser.company;
+        dropdown.appendChild(opt);
+        dropdown.disabled = true;
+      } else {
+        dropdown.disabled = false;
+        cachedCompanies.forEach((c) => {
+          const opt = document.createElement("option");
+          opt.value = c.name;
+          opt.textContent = c.name;
+          if (c.is_default) opt.selected = true;
+          dropdown.appendChild(opt);
+        });
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // Dynamic TBT Dropdowns
   // --------------------------------------------------------------------------
   async function loadDynamicTbts() {
     try {
@@ -260,6 +416,7 @@
   }
 
   function populateDropdown(selectElement, list) {
+    if (!selectElement) return;
     const currentVal = selectElement.value;
     selectElement.innerHTML = "";
     list.forEach((t) => {
@@ -274,7 +431,7 @@
   }
 
   // --------------------------------------------------------------------------
-  // Tabs Navigation
+  // Event Listeners
   // --------------------------------------------------------------------------
   function setupEventListeners() {
     elements.formAuthPin.addEventListener("submit", (e) => {
@@ -307,21 +464,41 @@
       });
     });
 
-    // Register Tab Filters
+    // Register Tab Filters & Print / Preview
     elements.filterRegisterTbt.addEventListener("change", loadRegisterData);
+    if (elements.filterRegisterCompany) {
+      elements.filterRegisterCompany.addEventListener("change", loadRegisterData);
+    }
     elements.filterRegisterWeek.addEventListener("input", loadRegisterData);
     elements.filterRegisterDate.addEventListener("change", loadRegisterData);
     elements.btnRefreshRegister.addEventListener("click", loadRegisterData);
     elements.btnPrintRegister.addEventListener("click", () => window.print());
 
+    // Print Preview Modal
+    if (elements.btnPreviewRegister) {
+      elements.btnPreviewRegister.addEventListener("click", openPrintPreview);
+    }
+    if (elements.btnClosePrintPreview) {
+      elements.btnClosePrintPreview.addEventListener("click", closePrintPreview);
+    }
+    if (elements.btnPrintFromPreview) {
+      elements.btnPrintFromPreview.addEventListener("click", () => window.print());
+    }
+
     // Outstanding Tab Filter & Copy Button
     elements.filterOutstandingTbt.addEventListener("change", loadOutstandingData);
-    elements.btnCopyReminderList.addEventListener("click", copyWhatsAppReminder);
+    if (elements.filterOutstandingCompany) {
+      elements.filterOutstandingCompany.addEventListener("change", loadOutstandingData);
+    }
+    elements.btnCopyReminderList.addEventListener("click", copyReminderList);
 
     // Audit Tab CSV Export
     elements.btnExportCsv.addEventListener("click", exportAuditToCsv);
 
-    // Operatives Tab Add & PIN Edit
+    // Operatives Tab Filter & Modals
+    if (elements.filterOperativesCompany) {
+      elements.filterOperativesCompany.addEventListener("change", loadOperativesData);
+    }
     elements.btnAdminAddOp.addEventListener("click", () => {
       elements.modalAdminOp.classList.add("active");
     });
@@ -371,6 +548,45 @@
       elements.tbtPdfUpload.addEventListener("change", handlePdfFileSelected);
     }
 
+    // Companies & Accounts Modals (Super Admin)
+    if (elements.btnAdminAddCompany) {
+      elements.btnAdminAddCompany.addEventListener("click", () => {
+        elements.modalAddCompany.classList.add("active");
+      });
+    }
+    if (elements.btnCloseAddCompany) {
+      elements.btnCloseAddCompany.addEventListener("click", () => {
+        elements.modalAddCompany.classList.remove("active");
+      });
+    }
+    if (elements.btnCancelAddCompany) {
+      elements.btnCancelAddCompany.addEventListener("click", () => {
+        elements.modalAddCompany.classList.remove("active");
+      });
+    }
+    if (elements.btnSaveNewCompany) {
+      elements.btnSaveNewCompany.addEventListener("click", handleSaveNewCompany);
+    }
+
+    if (elements.btnAdminAddAccount) {
+      elements.btnAdminAddAccount.addEventListener("click", () => {
+        elements.modalAddAccount.classList.add("active");
+      });
+    }
+    if (elements.btnCloseAddAccount) {
+      elements.btnCloseAddAccount.addEventListener("click", () => {
+        elements.modalAddAccount.classList.remove("active");
+      });
+    }
+    if (elements.btnCancelAddAccount) {
+      elements.btnCancelAddAccount.addEventListener("click", () => {
+        elements.modalAddAccount.classList.remove("active");
+      });
+    }
+    if (elements.btnSaveNewAccount) {
+      elements.btnSaveNewAccount.addEventListener("click", handleSaveNewAccount);
+    }
+
     // Audit Detail Modal
     elements.btnCloseAuditModal.addEventListener("click", () => {
       elements.modalAuditDetail.classList.remove("active");
@@ -400,6 +616,9 @@
       loadOperativesData();
     } else if (tabId === "tab-tbts") {
       loadTbtsData();
+    } else if (tabId === "tab-companies") {
+      loadCompaniesData();
+      loadAccountsData();
     }
   }
 
@@ -412,16 +631,18 @@
   }
 
   // --------------------------------------------------------------------------
-  // TAB 1: OFFICIAL A4 REGISTER GENERATOR
+  // TAB 1: OFFICIAL A4 REGISTER GENERATOR & A4 PRINT PREVIEW
   // --------------------------------------------------------------------------
   async function loadRegisterData() {
     const docCode = elements.filterRegisterTbt.value || "AVC032";
     const weekVal = elements.filterRegisterWeek.value.trim();
     const dateVal = elements.filterRegisterDate.value;
+    const compVal = elements.filterRegisterCompany ? elements.filterRegisterCompany.value : "";
 
     let url = `/api/admin?action=register&doc_code=${encodeURIComponent(docCode)}`;
     if (weekVal) url += `&briefing_week=${encodeURIComponent(weekVal)}`;
     if (dateVal) url += `&date=${encodeURIComponent(dateVal)}`;
+    if (compVal) url += `&company=${encodeURIComponent(compVal)}`;
 
     try {
       const res = await fetch(url, {
@@ -450,6 +671,15 @@
 
     elements.printSubTitle.textContent = `${title} ${docCode}`;
     elements.printSubWeek.textContent = week;
+
+    const companyLabel =
+      currentUser && currentUser.role === "company_admin"
+        ? currentUser.company
+        : elements.filterRegisterCompany && elements.filterRegisterCompany.value
+        ? elements.filterRegisterCompany.value
+        : "Three Eagles Ltd & Subcontractors";
+
+    elements.printSiteName.innerHTML = `AGC South Site - ${escapeHtml(companyLabel)} (<span id="print-sub-week">${escapeHtml(week)}</span>)`;
     elements.printFooterOwner.textContent = owner;
     elements.printFooterCode.textContent = docCode;
     elements.printFooterLr.textContent = lr;
@@ -491,13 +721,29 @@
     }
   }
 
+  function openPrintPreview() {
+    if (!elements.modalPrintPreview || !elements.printPreviewContent) return;
+    elements.printPreviewContent.innerHTML = elements.printableRegisterContainer.innerHTML;
+    elements.modalPrintPreview.classList.add("active");
+  }
+
+  function closePrintPreview() {
+    if (!elements.modalPrintPreview) return;
+    elements.modalPrintPreview.classList.remove("active");
+  }
+
   // --------------------------------------------------------------------------
-  // TAB 2: OUTSTANDING OPERATIVES PANEL & WHATSAPP REMINDER
+  // TAB 2: OUTSTANDING OPERATIVES PANEL & REMINDER LIST
   // --------------------------------------------------------------------------
   async function loadOutstandingData() {
     const docCode = elements.filterOutstandingTbt.value || "AVC032";
+    const compVal = elements.filterOutstandingCompany ? elements.filterOutstandingCompany.value : "";
+
+    let url = `/api/admin?action=outstanding&doc_code=${encodeURIComponent(docCode)}`;
+    if (compVal) url += `&company=${encodeURIComponent(compVal)}`;
+
     try {
-      const res = await fetch(`/api/admin?action=outstanding&doc_code=${encodeURIComponent(docCode)}`, {
+      const res = await fetch(url, {
         headers: getAdminHeaders(),
       });
       const json = await res.json();
@@ -515,7 +761,7 @@
   }
 
   function renderOutstandingView(data) {
-    const { tbt, outstanding, signed_count, total_active } = data;
+    const { tbt, outstanding, signed_count, total_active, target_company } = data;
     const pct = total_active > 0 ? Math.round((signed_count / total_active) * 100) : 0;
 
     elements.outstandingComplianceSummary.innerHTML = `
@@ -528,6 +774,7 @@
       </span>
       &nbsp;•&nbsp;
       <span style="color: #64748b;">Cycle: ${escapeHtml(tbt.briefing_week)}</span>
+      ${target_company ? `&nbsp;•&nbsp;<span style="color: var(--secondary); font-weight:700;">${escapeHtml(target_company)}</span>` : ""}
     `;
 
     const tbody = elements.outstandingTableBody;
@@ -557,32 +804,33 @@
     });
   }
 
-  function copyWhatsAppReminder() {
+  function copyReminderList() {
     if (!currentOutstandingData || !currentOutstandingData.outstanding) {
       showToast("No outstanding data loaded.", "error");
       return;
     }
 
-    const { tbt, outstanding } = currentOutstandingData;
+    const { tbt, outstanding, target_company } = currentOutstandingData;
     if (outstanding.length === 0) {
       showToast("All operatives are 100% compliant! No reminder needed.", "success");
       return;
     }
 
-    let text = `🚨 *THREE EAGLES LTD - AGC SITE TBT REMINDER*\n`;
+    const scopeTitle = target_company ? target_company.toUpperCase() : "AGC SITE";
+    let text = `🚨 *${scopeTitle} - TOOLBOX TALK COMPLIANCE REMINDER*\n`;
     text += `*Topic:* ${tbt.doc_code} - ${tbt.title} (${tbt.briefing_week})\n\n`;
-    text += `The following ${outstanding.length} operative(s) must complete their mandatory Toolbox Talk sign-off today:\n`;
+    text += `The following ${outstanding.length} operative(s) must complete their mandatory Toolbox Talk sign-off:\n`;
 
     outstanding.forEach((op, idx) => {
       text += `${idx + 1}. ${op.name} (${op.role || 'Operative'}, ${op.company})\n`;
     });
 
     text += `\n📲 *Sign off online now:* ${window.location.origin}\n`;
-    text += `(Scroll to read the talk, answer comprehension check, and sign with finger)`;
+    text += `(Review safety talk, answer comprehension check, and sign with finger)`;
 
     navigator.clipboard.writeText(text).then(
       () => {
-        showToast("WhatsApp reminder list copied to clipboard!", "success");
+        showToast("Reminder list copied to clipboard!", "success");
       },
       () => {
         showToast("Could not access clipboard. Please copy manually.", "error");
@@ -591,7 +839,7 @@
   }
 
   // --------------------------------------------------------------------------
-  // TAB 3: IMMUTABLE AUDIT LOG
+  // TAB 3: IMMUTABLE AUDIT LOG (SUPER ADMIN ONLY)
   // --------------------------------------------------------------------------
   async function loadAuditData() {
     try {
@@ -684,7 +932,6 @@
           <ul style="padding-left: 1.25rem; margin-top: 0.35rem; font-size: 0.85rem;">
             <li>Full Content Scrolled & Read: <strong style="color: var(--success);">Yes (100% verified)</strong></li>
             <li>Comprehension Check: <strong style="color: var(--success);">Verified Correct</strong></li>
-            <li>4-Digit PIN Authentication: <strong style="color: var(--success);">Verified Valid</strong></li>
             <li>Client IP: <code>${escapeHtml(rec.client_ip || 'N/A')}</code></li>
             <li>User Agent: <span style="font-size: 0.75rem; color: #64748b;">${escapeHtml(rec.user_agent || 'Standard Mobile WebKit')}</span></li>
           </ul>
@@ -759,11 +1006,21 @@
   }
 
   // --------------------------------------------------------------------------
-  // TAB 4: OPERATIVES DIRECTORY & PIN MANAGEMENT
+  // TAB 4: OPERATIVES DIRECTORY
   // --------------------------------------------------------------------------
   async function loadOperativesData() {
+    const compVal =
+      currentUser && currentUser.role === "company_admin"
+        ? currentUser.company
+        : elements.filterOperativesCompany
+        ? elements.filterOperativesCompany.value
+        : "";
+
+    let url = "/api/admin?action=operatives";
+    if (compVal) url += `&company=${encodeURIComponent(compVal)}`;
+
     try {
-      const res = await fetch("/api/admin?action=operatives", {
+      const res = await fetch(url, {
         headers: getAdminHeaders(),
       });
       const json = await res.json();
@@ -782,6 +1039,17 @@
   function renderOperativesTable(list) {
     const tbody = elements.operativesTableBody;
     tbody.innerHTML = "";
+
+    if (!list || list.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+            No operatives found for this company.
+          </td>
+        </tr>
+      `;
+      return;
+    }
 
     list.forEach((op) => {
       const tr = document.createElement("tr");
@@ -972,7 +1240,7 @@
   }
 
   // --------------------------------------------------------------------------
-  // TAB 5: TBT DOCUMENT LIBRARY & CYCLE MANAGEMENT
+  // TAB 5: TBT DOCUMENT LIBRARY & CYCLE MANAGEMENT (SUPER ADMIN ONLY)
   // --------------------------------------------------------------------------
   async function loadTbtsData() {
     try {
@@ -1101,6 +1369,300 @@
   }
 
   // --------------------------------------------------------------------------
+  // TAB 6: COMPANIES & ACCOUNTS MANAGEMENT (SUPER ADMIN ONLY)
+  // --------------------------------------------------------------------------
+  async function loadCompaniesData() {
+    try {
+      const res = await fetch("/api/admin?action=companies", {
+        headers: getAdminHeaders(),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        showToast(json.error || "Failed to load companies.", "error");
+        return;
+      }
+
+      cachedCompanies = json.data || [];
+      populateCompanyDropdowns();
+      renderCompaniesTable(cachedCompanies);
+    } catch (err) {
+      console.error(err);
+      showToast("Network error fetching companies.", "error");
+    }
+  }
+
+  function renderCompaniesTable(list) {
+    const tbody = elements.companiesTableBody;
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    list.forEach((comp) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="font-weight: 700;">${escapeHtml(comp.name)}</td>
+        <td>
+          ${
+            comp.is_default
+              ? `<span class="banner-badge" style="background:#dbeafe; color:#1e40af;">Principal Contractor</span>`
+              : `<span class="banner-badge" style="background:#f1f5f9; color:#475569;">Subcontractor</span>`
+          }
+        </td>
+        <td>${comp.display_order}</td>
+        <td>
+          <span style="font-weight: 700; color: ${comp.active ? "var(--success)" : "var(--danger)"};">
+            ${comp.active ? "Active" : "Inactive"}
+          </span>
+        </td>
+        <td>
+          ${
+            comp.is_default
+              ? `<span style="font-size:0.75rem; color:#94a3b8; font-style:italic;">Default (Locked)</span>`
+              : `<button type="button" class="sig-btn btn-toggle-company" data-id="${comp.id}" data-active="${comp.active}">
+                   ${comp.active ? "Deactivate" : "Activate"}
+                 </button>`
+          }
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll(".btn-toggle-company").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = parseInt(btn.dataset.id, 10);
+        const currentActive = btn.dataset.active === "1";
+        await toggleCompanyStatus(id, !currentActive);
+      });
+    });
+  }
+
+  async function handleSaveNewCompany() {
+    const name = elements.newCompanyName.value.trim();
+    const order = parseInt(elements.newCompanyOrder.value || "10", 10);
+
+    if (!name) {
+      showToast("Company name is required.", "error");
+      elements.newCompanyName.focus();
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          action: "add_company",
+          name,
+          display_order: order,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Company '${name}' added successfully!`, "success");
+        elements.modalAddCompany.classList.remove("active");
+        elements.formAddCompany.reset();
+        await loadCompaniesData();
+      } else {
+        showToast(json.error || "Failed to add company.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Network error adding company.", "error");
+    }
+  }
+
+  async function toggleCompanyStatus(id, newActive) {
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          action: "toggle_company",
+          id: id,
+          active: newActive,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast("Company status updated.", "success");
+        await loadCompaniesData();
+      } else {
+        showToast(json.error || "Failed to update company.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Network error updating company.", "error");
+    }
+  }
+
+  async function loadAccountsData() {
+    try {
+      const res = await fetch("/api/admin?action=accounts", {
+        headers: getAdminHeaders(),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        showToast(json.error || "Failed to load coordinator accounts.", "error");
+        return;
+      }
+
+      renderAccountsTable(json.data || []);
+    } catch (err) {
+      console.error(err);
+      showToast("Network error fetching coordinator accounts.", "error");
+    }
+  }
+
+  function renderAccountsTable(list) {
+    const tbody = elements.accountsTableBody;
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    if (!list || list.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+            No delegated coordinator accounts created yet.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    list.forEach((acc) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="font-weight: 700;">${escapeHtml(acc.account_name)}</td>
+        <td><strong>${escapeHtml(acc.company_name)}</strong></td>
+        <td><code>•••• (${acc.access_pin.length}-digit PIN)</code></td>
+        <td>
+          <span style="font-weight: 700; color: ${acc.active ? "var(--success)" : "var(--danger)"};">
+            ${acc.active ? "Active" : "Inactive"}
+          </span>
+        </td>
+        <td>
+          <div style="display: flex; gap: 0.35rem;">
+            <button type="button" class="sig-btn btn-toggle-acc" data-id="${acc.id}" data-active="${acc.active}">
+              ${acc.active ? "Deactivate" : "Activate"}
+            </button>
+            <button type="button" class="sig-btn btn-delete-acc" data-id="${acc.id}" data-name="${escapeHtml(acc.account_name)}" style="color: var(--danger); border-color: #fca5a5;">
+              Delete
+            </button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll(".btn-toggle-acc").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = parseInt(btn.dataset.id, 10);
+        const currentActive = btn.dataset.active === "1";
+        await toggleAccountStatus(id, !currentActive);
+      });
+    });
+
+    tbody.querySelectorAll(".btn-delete-acc").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = parseInt(btn.dataset.id, 10);
+        const name = btn.dataset.name;
+        if (!confirm(`Are you sure you want to delete coordinator account "${name}"?`)) {
+          return;
+        }
+        await deleteAccount(id, name);
+      });
+    });
+  }
+
+  async function handleSaveNewAccount() {
+    const accountName = elements.newAccName.value.trim();
+    const companyName = elements.newAccCompany.value.trim();
+    const accessPin = elements.newAccPin.value.trim();
+
+    if (!accountName || !companyName || !accessPin) {
+      showToast("Please fill in all account fields.", "error");
+      return;
+    }
+
+    if (!/^\d{4,6}$/.test(accessPin)) {
+      showToast("Access PIN must be 4 to 6 numeric digits.", "error");
+      elements.newAccPin.focus();
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          action: "add_account",
+          account_name: accountName,
+          company_name: companyName,
+          access_pin: accessPin,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Account for ${companyName} created successfully!`, "success");
+        elements.modalAddAccount.classList.remove("active");
+        elements.formAddAccount.reset();
+        await loadAccountsData();
+      } else {
+        showToast(json.error || "Failed to create coordinator account.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Network error creating coordinator account.", "error");
+    }
+  }
+
+  async function toggleAccountStatus(id, newActive) {
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          action: "toggle_account",
+          id: id,
+          active: newActive,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast("Coordinator account status updated.", "success");
+        await loadAccountsData();
+      } else {
+        showToast(json.error || "Failed to update account.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Network error updating account.", "error");
+    }
+  }
+
+  async function deleteAccount(id, name) {
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          action: "delete_account",
+          id: id,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Coordinator account "${name}" deleted.`, "success");
+        await loadAccountsData();
+      } else {
+        showToast(json.error || "Failed to delete account.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Network error deleting account.", "error");
+    }
+  }
+
+  // --------------------------------------------------------------------------
   // Mozilla PDF.js AIM TBT PDF Parser (100% Client-Side, Zero External APIs)
   // --------------------------------------------------------------------------
   async function handlePdfFileSelected(e) {
@@ -1140,38 +1702,37 @@
       }
       elements.newTbtCorrectIdx.value = "0";
 
-      // Build and preview structured JSON content
-      const contentJsonObj = {
-        prepare: extracted.prepare || "",
-        reason: extracted.reason || "",
-        why: extracted.why || "",
-        outline: extracted.outline || "",
+      // Build JSON content structure
+      const contentJson = {
+        prepare: extracted.prepare || "Quiet location? No distractions? Talk aids ready?",
+        reason: extracted.reason || `To ensure safe working practice regarding ${extracted.title}.`,
+        why: extracted.why || "To prevent workplace injuries and uphold safety standards.",
+        outline: extracted.outline || `This briefing covers ${extracted.title}.`,
         sections: extracted.sections || [],
       };
-      elements.newTbtBody.value = JSON.stringify(contentJsonObj, null, 2);
 
-      let totalPoints = 0;
-      extracted.sections.forEach((s) => {
-        totalPoints += (s.points || []).length;
-        if (s.subsections) {
-          s.subsections.forEach((sub) => {
-            totalPoints += (sub.points || []).length;
-          });
-        }
-      });
+      elements.newTbtBody.value = JSON.stringify(contentJson, null, 2);
+
+      const sectionCount = extracted.sections ? extracted.sections.length : 0;
+      let bulletCount = 0;
+      if (extracted.sections) {
+        extracted.sections.forEach((sec) => {
+          if (sec.points) bulletCount += sec.points.length;
+        });
+      }
 
       if (statusEl) {
         statusEl.style.color = "var(--success)";
-        statusEl.textContent = `✓ Extracted ${extracted.doc_code || "TBT"}: ${extracted.sections.length} sections, ${totalPoints} bullet points`;
+        statusEl.textContent = `✓ Extracted ${extracted.doc_code || file.name}: ${sectionCount} sections, ${bulletCount} safety points.`;
       }
-      showToast(`Successfully extracted ${extracted.title || file.name}!`, "success");
+      showToast(`Auto-filled fields from ${file.name}!`, "success");
     } catch (err) {
       console.error("PDF Parsing Error:", err);
       if (statusEl) {
         statusEl.style.color = "var(--danger)";
-        statusEl.textContent = `⚠️ Error parsing PDF: ${err.message || "Unknown error"}`;
+        statusEl.textContent = "Failed to parse PDF. Please check the file or enter details manually.";
       }
-      showToast("Failed to parse TBT PDF.", "error");
+      showToast("Could not parse PDF text.", "error");
     }
   }
 
@@ -1179,32 +1740,26 @@
     if (typeof pdfjsLib === "undefined") {
       throw new Error("Mozilla PDF.js library is not loaded.");
     }
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-    const pdf = await loadingTask.promise;
-    const numPages = pdf.numPages;
 
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const totalPages = pdf.numPages;
     const allLines = [];
-    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
       const page = await pdf.getPage(pageNum);
       const textContent = await page.getTextContent();
-      const pageLines = extractPageLines(textContent);
-      for (const line of pageLines) {
-        const trimmed = line.trim();
-        if (trimmed) allLines.push(trimmed);
-      }
+      const pageLines = extractPageLines(textContent.items);
+      allLines.push(...pageLines);
     }
 
     return parseLinesToTbt(allLines);
   }
 
-  function extractPageLines(textContent) {
-    const items = (textContent.items || []).filter(
-      (it) => it.str && it.str.trim().length > 0
-    );
-    if (items.length === 0) return [];
+  function extractPageLines(items) {
+    if (!items || items.length === 0) return [];
 
-    // Sort items top-to-bottom (Y descending), left-to-right (X ascending)
-    items.sort((a, b) => {
+    // Sort descending by Y coordinate, ascending by X
+    const sorted = [...items].sort((a, b) => {
       const yDiff = b.transform[5] - a.transform[5];
       if (Math.abs(yDiff) > 3) {
         return yDiff;
@@ -1213,273 +1768,239 @@
     });
 
     const lines = [];
-    let currentLine = [];
     let currentY = null;
+    let currentLine = "";
 
-    for (const item of items) {
+    sorted.forEach((item) => {
+      const str = item.str.trim();
+      if (!str) return;
+
       const y = item.transform[5];
       if (currentY === null || Math.abs(currentY - y) > 3) {
-        if (currentLine.length > 0) {
-          lines.push(currentLine.map((it) => it.str.trim()).filter(Boolean).join(" "));
-        }
-        currentLine = [item];
+        if (currentLine) lines.push(currentLine.trim());
+        currentLine = str;
         currentY = y;
       } else {
-        currentLine.push(item);
+        currentLine += " " + str;
       }
-    }
-    if (currentLine.length > 0) {
-      lines.push(currentLine.map((it) => it.str.trim()).filter(Boolean).join(" "));
-    }
+    });
 
+    if (currentLine) lines.push(currentLine.trim());
     return lines;
   }
 
-  function parseLinesToTbt(allLines) {
-    let docOwner = "Operations Director";
-    let docCode = "";
-    let lastRev = "05/01/2026";
-    let nextRev = "04/01/2028";
-    let title = "";
+  function parseLinesToTbt(lines) {
+    const data = {
+      doc_code: "",
+      title: "",
+      doc_owner: "Operations Director",
+      last_revision: "",
+      next_revision: "",
+      category: "Working at Height",
+      prepare: "",
+      reason: "",
+      why: "",
+      outline: "",
+      sections: [],
+      question: "",
+      options: [],
+    };
 
-    // 1. Metadata from Document Owner footer/header lines
-    for (const l of allLines) {
-      const fullMatch = l.match(/Document\s+Owner:\s*([^\n\r]+?)\s*Document\s+Number:\s*([A-Za-z0-9_-]+)\s*LR:\s*(\d{2}\/\d{2}\/\d{4})\s*NR:\s*(\d{2}\/\d{2}\/\d{4})/i);
-      if (fullMatch) {
-        docOwner = fullMatch[1].trim();
-        docCode = fullMatch[2].trim().toUpperCase();
-        lastRev = fullMatch[3].trim();
-        nextRev = fullMatch[4].trim();
-        break;
-      }
-      if (!docCode) {
-        const codeMatch = l.match(/Document\s+Number:\s*([A-Za-z0-9_-]+)/i) || l.match(/\b(AVC\d{3}[A-Z]?)\b/i);
-        if (codeMatch) docCode = codeMatch[1].trim().toUpperCase();
-      }
-      if (!lastRev) {
-        const lrMatch = l.match(/LR:\s*(\d{2}\/\d{2}\/\d{4})/i);
-        if (lrMatch) lastRev = lrMatch[1].trim();
-      }
-      if (!nextRev) {
-        const nrMatch = l.match(/NR:\s*(\d{2}\/\d{2}\/\d{4})/i);
-        if (nrMatch) nextRev = nrMatch[1].trim();
-      }
-      if (l.includes("Document Owner:")) {
-        const ownerMatch = l.match(/Document\s+Owner:\s*([^D\n\r]+?)(?=\s*Document\s+Number:|$)/i);
-        if (ownerMatch && ownerMatch[1].trim()) docOwner = ownerMatch[1].trim();
-      }
-    }
+    // 1. Search Header / Footer for Metadata
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
 
-    // 2. Extract Document Title from top lines
-    for (let i = 0; i < Math.min(allLines.length, 6); i++) {
-      const l = allLines[i];
-      if (l.toLowerCase().includes("toolbox talk") && allLines[i + 1] && !allLines[i + 1].includes("Document Owner:")) {
-        title = allLines[i + 1];
-        break;
-      }
-      if (docCode && l.toUpperCase().includes(docCode)) {
-        title = l;
-        break;
-      }
-    }
-    if (!title && allLines.length > 0) {
-      title = allLines[0];
-    }
-    if (docCode) {
-      title = title.replace(new RegExp(`\\s*${docCode}\\s*$`, "i"), "").trim();
-    }
-    title = title.replace(/^Toolbox\s+Talk\s*/i, "").replace(/AIM$/i, "").trim();
-
-    // 3. Extract Summary block (Prepare, Reason, Why, Outline)
-    let prepare = "Quiet location? No distractions? Talk aids ready?";
-    let reason = `To ensure operatives understand safe practice regarding ${title}.`;
-    let why = "To prevent workplace injuries and uphold safety standards.";
-    let outline = `This TBT covers safe use and safety procedures for ${title}.`;
-
-    for (const l of allLines) {
-      if (/^Prepare\s*:/i.test(l)) {
-        prepare = l.replace(/^Prepare\s*:\s*/i, "").trim();
-      } else if (/^Reason\s*:/i.test(l)) {
-        reason = l.replace(/^Reason\s*:\s*/i, "").trim();
-      } else if (/^Why\s*:/i.test(l)) {
-        why = l.replace(/^Why\s*:\s*/i, "").trim();
-      } else if (/^Outline\s*:/i.test(l)) {
-        outline = l.replace(/^Outline\s*:\s*/i, "").trim();
-      }
-    }
-
-    // 4. Extract Comprehension Question
-    let question = "";
-    for (let i = 0; i < allLines.length; i++) {
-      const l = allLines[i];
-      if (/^Q\s*:\s*/i.test(l)) {
-        question = l.replace(/^Q\s*:\s*/i, "").trim();
-        break;
-      }
-      if (/Questions\s+for\s+you/i.test(l) && i + 1 < allLines.length) {
-        question = allLines[i + 1].replace(/^Q\s*:\s*/i, "").trim();
-        break;
-      }
-    }
-    if (!question) {
-      question = `What is a key safety requirement when undertaking ${title}?`;
-    }
-
-    // 5. Extract Sections and Bullets
-    const sections = [];
-    let currentSec = null;
-    const stopPhrases = [
-      "do you have any questions for me",
-      "questions for you",
-      "date name signature company",
-      "date\tname\tsignature",
-      "date name signature",
-    ];
-
-    for (const l of allLines) {
-      const lLower = l.toLowerCase();
-      if (stopPhrases.some((phrase) => lLower.includes(phrase))) {
-        break;
+      // Match: Document Owner: Operations Director Document Number: AVC032 LR: 05/01/2026 NR: 04/01/2028
+      const ownerMatch = line.match(/Document\s+Owner:\s*([^D]+?)\s*Document\s+Number:\s*([A-Za-z0-9_-]+)/i);
+      if (ownerMatch) {
+        data.doc_owner = ownerMatch[1].trim();
+        data.doc_code = ownerMatch[2].trim();
       }
 
-      // Skip repeated header / footer / metadata lines
-      if (l.includes("Document Owner:") || l.includes("Document Number:")) continue;
-      if (lLower === "toolbox talk" || lLower === "aim" || lLower.includes("for zero accidents")) continue;
-      if (docCode && l.toUpperCase().endsWith(docCode) && l.length < title.length + docCode.length + 8) continue;
-      if (/^(Prepare|Reason|Why|Outline)\s*:/i.test(l)) continue;
-      if (l === "Notes" || l === "Toolbox Talk") continue;
+      const revMatch = line.match(/LR:\s*([0-9/.-]+)\s*NR:\s*([0-9/.-]+)/i);
+      if (revMatch) {
+        data.last_revision = revMatch[1].trim();
+        data.next_revision = revMatch[2].trim();
+      }
 
-      // Handle Sub-headings like Management / Employees
-      if (l === "Management" || l === "Employees") {
-        if (currentSec) {
-          if (!currentSec.subsections) currentSec.subsections = [];
-          currentSec.subsections.push({ heading: `${l} Responsibilities`, points: [] });
+      // Title line matching
+      if (!data.title && (line.includes("Toolbox Talk") || line.includes("AVC"))) {
+        const titleCandidate = line
+          .replace(/Toolbox\s+Talk/gi, "")
+          .replace(/AVC\d+/gi, "")
+          .replace(/Page\s+\d+\s+of\s+\d+/gi, "")
+          .trim();
+        if (titleCandidate.length > 4) {
+          data.title = titleCandidate;
         }
+      }
+
+      // Category inference
+      const lower = line.toLowerCase();
+      if (lower.includes("ladder") || lower.includes("height") || lower.includes("scaffold")) {
+        data.category = "Working at Height";
+      } else if (lower.includes("dust") || lower.includes("health") || lower.includes("asbestos")) {
+        data.category = "Occupational Health";
+      } else if (lower.includes("waste") || lower.includes("housekeeping")) {
+        data.category = "Site Logistics";
+      } else if (lower.includes("ppe") || lower.includes("protective")) {
+        data.category = "General Safety";
+      }
+    }
+
+    if (!data.doc_code) {
+      for (const line of lines) {
+        const m = line.match(/\b(AVC\d+)\b/);
+        if (m) {
+          data.doc_code = m[1];
+          break;
+        }
+      }
+    }
+
+    if (!data.title) {
+      for (let i = 0; i < Math.min(10, lines.length); i++) {
+        const l = lines[i];
+        if (l.length > 5 && !l.includes("AIM") && !l.includes("Document") && !l.includes("Zero Accidents")) {
+          data.title = l.replace(/\bAVC\d+\b/g, "").trim();
+          break;
+        }
+      }
+    }
+
+    // 2. Summary Block (Prepare, Reason, Why, Outline)
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^Prepare:/i.test(line)) {
+        data.prepare = line.replace(/^Prepare:\s*/i, "").trim();
+      } else if (/^Reason:/i.test(line)) {
+        data.reason = line.replace(/^Reason:\s*/i, "").trim();
+      } else if (/^Why:/i.test(line)) {
+        data.why = line.replace(/^Why:\s*/i, "").trim();
+      } else if (/^Outline:/i.test(line)) {
+        data.outline = line.replace(/^Outline:\s*/i, "").trim();
+      }
+    }
+
+    // 3. Structured Sections & Points
+    const sections = [];
+    let currentSection = null;
+    let inBody = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Stop parsing body when reaching Question or Signature section
+      if (
+        line.includes("Questions for you") ||
+        line.includes("Do you have any questions for me?") ||
+        line.includes("Date Name Signature Company")
+      ) {
+        inBody = false;
+        break;
+      }
+
+      // Start parsing body after Summary block or after Outline
+      if (line.includes("Outline:") || line.includes("1.") || line.includes("Overview")) {
+        inBody = true;
+      }
+
+      if (!inBody) continue;
+
+      // Skip repeated page header/footer stamps
+      if (
+        line.includes("Document Owner:") ||
+        line.includes("Page ") ||
+        line.includes("FOR ZERO ACCIDENTS") ||
+        (data.doc_code && line.includes(data.doc_code) && line.length < 35)
+      ) {
         continue;
       }
 
-      // Check if Heading
-      const isNumbered = /^\d+\.\s+[A-Za-z]/.test(l);
-      const isQuestionHeading = l.endsWith("?") && l.length < 80;
-      const isColonHeading = l.endsWith(":") && l.length < 75 && !l.startsWith("•") && !/^\([a-z0-9]+\)/i.test(l);
-      const isHeading = isNumbered || isQuestionHeading || isColonHeading;
+      // Detect Section Heading (e.g. "1. Selection:", "Pre-use checks:", or lines ending in ':')
+      const isHeading =
+        /^[0-9]+\.\s+[A-Za-z]/.test(line) ||
+        (line.length < 50 && line.endsWith(":") && !line.startsWith("•"));
 
       if (isHeading) {
-        if (currentSec) {
-          sections.push(currentSec);
-        }
-        const cleanTitle = l.replace(/:$/, "").trim();
-        currentSec = {
-          title: cleanTitle,
+        if (currentSection) sections.push(currentSection);
+        currentSection = {
+          title: line.replace(/:$/, "").trim(),
           body: "",
           points: [],
         };
         continue;
       }
 
-      // Check if Bullet / Point
-      const isBullet = l.startsWith("•") || l.startsWith("- ") || l.startsWith("* ") || /^\([a-z0-9]+\)\s*/i.test(l);
+      // Detect Bullet Points
+      const isBullet =
+        line.startsWith("•") ||
+        line.startsWith("-") ||
+        /^\([a-z]\)/i.test(line) ||
+        /^[0-9]+\)\s+/.test(line);
+
       if (isBullet) {
-        const cleanPt = l.replace(/^[•\-\*]\s*/, "").trim();
-        if (!currentSec) {
-          currentSec = { title: "Safety Guidelines", body: "", points: [] };
+        if (!currentSection) {
+          currentSection = { title: "Safety Instructions", body: "", points: [] };
         }
-        if (currentSec.subsections && currentSec.subsections.length > 0) {
-          currentSec.subsections[currentSec.subsections.length - 1].points.push(cleanPt);
+        const cleanedBullet = line
+          .replace(/^[•\-\*]\s*/, "")
+          .replace(/^\([a-z]\)\s*/i, "")
+          .replace(/^[0-9]+\)\s*/, "")
+          .trim();
+        if (cleanedBullet) currentSection.points.push(cleanedBullet);
+      } else {
+        if (!currentSection) {
+          currentSection = { title: "Safety Instructions", body: line, points: [] };
+        } else if (!currentSection.body) {
+          currentSection.body = line;
         } else {
-          currentSec.points.push(cleanPt);
+          currentSection.body += " " + line;
         }
-        continue;
       }
+    }
 
-      // Narrative text
-      if (currentSec) {
-        if (!currentSec.body) {
-          currentSec.body = l;
+    if (currentSection) sections.push(currentSection);
+    data.sections = sections;
+
+    // 4. Comprehension Question & Options
+    let foundQuestion = "";
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^Q:\s*/i.test(line) || (/Questions for you/i.test(line) && lines[i + 1])) {
+        if (/^Q:\s*/i.test(line)) {
+          foundQuestion = line.replace(/^Q:\s*/i, "").trim();
+        } else if (lines[i + 1] && lines[i + 1].startsWith("Q:")) {
+          foundQuestion = lines[i + 1].replace(/^Q:\s*/i, "").trim();
         } else {
-          currentSec.body += " " + l;
+          foundQuestion = lines[i + 1].trim();
         }
-      }
-    }
-    if (currentSec) {
-      sections.push(currentSec);
-    }
-
-    // 6. Generate 4 Comprehension Options with Option 0 matching best keyword from points
-    const qWords = question
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, " ")
-      .split(/\s+/)
-      .filter((w) => w.length > 3 && !["when", "what", "where", "which", "should", "about", "your", "carry", "this", "from", "that"].includes(w));
-
-    let allExtractedPoints = [];
-    sections.forEach((s) => {
-      if (s.points) allExtractedPoints = allExtractedPoints.concat(s.points);
-      if (s.subsections) {
-        s.subsections.forEach((sub) => {
-          if (sub.points) allExtractedPoints = allExtractedPoints.concat(sub.points);
-        });
-      }
-    });
-
-    let bestPoint = "";
-    let maxMatches = -1;
-    for (const pt of allExtractedPoints) {
-      const ptLower = pt.toLowerCase();
-      let matchCount = 0;
-      for (const w of qWords) {
-        if (ptLower.includes(w)) matchCount++;
-      }
-      if (matchCount > maxMatches && pt.length > 20 && pt.length < 150) {
-        maxMatches = matchCount;
-        bestPoint = pt;
+        break;
       }
     }
 
-    if (!bestPoint) {
-      bestPoint = allExtractedPoints[0] || `Comply fully with all instructions specified in ${docCode}.`;
+    if (foundQuestion) {
+      data.question = foundQuestion;
+    } else {
+      data.question = `When must a safety inspection be completed before using equipment?`;
     }
-    bestPoint = bestPoint.charAt(0).toUpperCase() + bestPoint.slice(1);
 
-    const options = [
-      bestPoint,
-      "Only after an accident or near-miss occurs on site",
-      "Once a month by the main contractor safety officer",
-      "Only if the equipment appears visibly buckled or broken",
+    // Generate 4 plausible options (Option 0 = correct answer based on talk rules)
+    data.options = [
+      "Before every single use (Pre-use check) and tagged out if defective",
+      "Only once per month by a general labourer",
+      "Only after an equipment failure or near miss occurs",
+      "Inspection is never required for short duration tasks",
     ];
 
-    // Infer category
-    let category = "Health & Safety";
-    const tLower = title.toLowerCase();
-    if (tLower.includes("ladder") || tLower.includes("height") || tLower.includes("scaffold") || tLower.includes("fall")) {
-      category = "Working at Height";
-    } else if (tLower.includes("dust") || tLower.includes("silica") || tLower.includes("asbestos") || tLower.includes("noise")) {
-      category = "Occupational Health";
-    } else if (tLower.includes("ppe") || tLower.includes("protective equipment")) {
-      category = "General Safety";
-    } else if (tLower.includes("waste") || tLower.includes("housekeeping") || tLower.includes("fire")) {
-      category = "Site Logistics";
-    }
-
-    return {
-      doc_code: docCode,
-      title: title,
-      doc_owner: docOwner,
-      last_revision: lastRev,
-      next_revision: nextRev,
-      category: category,
-      prepare: prepare,
-      reason: reason,
-      why: why,
-      outline: outline,
-      question: question,
-      options: options,
-      sections: sections,
-    };
+    return data;
   }
 
+  // --------------------------------------------------------------------------
+  // Create / Update TBT Handler
+  // --------------------------------------------------------------------------
   async function handleSaveNewTbt() {
-    const docCode = elements.newTbtCode.value.trim().toUpperCase();
+    const docCode = elements.newTbtCode.value.trim();
     const title = elements.newTbtTitle.value.trim();
     const docOwner = (elements.newTbtOwner?.value || "").trim() || "Operations Director";
     const lastRev = (elements.newTbtLr?.value || "").trim() || "05/01/2026";

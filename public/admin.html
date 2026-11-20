@@ -20,10 +20,11 @@
         </div>
         <div class="site-title-group">
           <h1>TBT Compliance & Sign-Off Management</h1>
-          <p>Three Eagles Ltd • AGC South Site Records</p>
+          <p id="site-header-subtitle">Three Eagles Ltd • AGC South Site Records</p>
         </div>
       </div>
-      <div class="header-actions">
+      <div class="header-actions" style="display: flex; align-items: center; gap: 0.75rem;">
+        <div id="admin-auth-badge" style="display: none; background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.35); border-radius: 9999px; padding: 0.35rem 0.85rem; font-size: 0.8rem; font-weight: 600; color: #fff;"></div>
         <a href="/index.html" class="nav-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
@@ -48,15 +49,15 @@
         </div>
         <h2 style="font-size: 1.25rem; color: var(--secondary);">Supervisor Access Gate</h2>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem;">
-          Enter supervisor PIN to access compliance registers, PIN resets, and audit logs.
+          Enter supervisor or company coordinator PIN to access compliance registers and tools.
         </p>
       </div>
 
       <form id="form-auth-pin">
         <div class="form-group" style="margin-bottom: 1.25rem;">
-          <label for="admin-pin-input">Supervisor Security PIN</label>
+          <label for="admin-pin-input">Security Access PIN</label>
           <div style="position: relative; display: flex; align-items: center;">
-            <input type="password" id="admin-pin-input" class="form-control" placeholder="Enter supervisor PIN" autofocus required inputmode="numeric" autocomplete="current-password" style="padding-right: 2.75rem;">
+            <input type="password" id="admin-pin-input" class="form-control" placeholder="Enter supervisor or coordinator PIN" autofocus required inputmode="numeric" autocomplete="current-password" style="padding-right: 2.75rem;">
             <button type="button" id="btn-toggle-pin" style="position: absolute; right: 0.5rem; background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--text-muted); padding: 0.25rem; line-height: 1;" title="Show/Hide PIN" aria-label="Toggle PIN Visibility">👁️</button>
           </div>
         </div>
@@ -93,10 +94,11 @@
       <!-- Navigation Tabs -->
       <nav class="admin-tabs no-print">
         <button type="button" class="tab-btn active" data-tab="tab-register">Official A4 Register (Print / PDF)</button>
-        <button type="button" class="tab-btn" data-tab="tab-outstanding">Outstanding Operatives (WhatsApp)</button>
-        <button type="button" class="tab-btn" data-tab="tab-audit">Immutable Audit Log</button>
+        <button type="button" class="tab-btn" data-tab="tab-outstanding">Outstanding Operatives</button>
+        <button type="button" class="tab-btn" data-tab="tab-audit" data-role="super_admin">Immutable Audit Log</button>
         <button type="button" class="tab-btn" data-tab="tab-operatives">Operatives Directory</button>
-        <button type="button" class="tab-btn" data-tab="tab-tbts">TBT Document Library</button>
+        <button type="button" class="tab-btn" data-tab="tab-tbts" data-role="super_admin">TBT Document Library</button>
+        <button type="button" class="tab-btn" data-tab="tab-companies" data-role="super_admin">Companies & Accounts</button>
       </nav>
 
       <!-- TAB 1: OFFICIAL A4 REGISTER (PRINTABLE / PDF EXPORT) -->
@@ -109,9 +111,15 @@
                 <option value="" disabled selected>Loading talks...</option>
               </select>
             </div>
+            <div class="form-group" style="margin: 0;" id="group-filter-register-company">
+              <label for="filter-register-company" style="font-size: 0.75rem;">Company Filter:</label>
+              <select id="filter-register-company" class="form-control" style="min-height: 38px; font-weight: 600;">
+                <option value="">All Site Companies</option>
+              </select>
+            </div>
             <div class="form-group" style="margin: 0;">
               <label for="filter-register-week" style="font-size: 0.75rem;">Briefing Week:</label>
-              <input type="text" id="filter-register-week" class="form-control" placeholder="All Weeks" style="min-height: 38px; max-width: 130px;">
+              <input type="text" id="filter-register-week" class="form-control" placeholder="All Weeks" style="min-height: 38px; max-width: 120px;">
             </div>
             <div class="form-group" style="margin: 0;">
               <label for="filter-register-date" style="font-size: 0.75rem;">Date Filter:</label>
@@ -122,14 +130,23 @@
             </button>
           </div>
 
-          <button type="button" id="btn-print-register" class="btn-submit" style="width: auto; min-height: 40px; padding: 0.5rem 1.25rem;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 6 2 18 2 18 9"></polyline>
-              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-              <rect x="6" y="14" width="12" height="8"></rect>
-            </svg>
-            <span>Print Official A4 Register / Save PDF</span>
-          </button>
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <button type="button" id="btn-preview-register" class="sig-btn" style="min-height: 40px; padding: 0.5rem 1rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem; background: #fff;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <span>Print Preview</span>
+            </button>
+            <button type="button" id="btn-print-register" class="btn-submit" style="width: auto; min-height: 40px; padding: 0.5rem 1.25rem;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+              </svg>
+              <span>Print Official A4 Register / Save PDF</span>
+            </button>
+          </div>
         </div>
 
         <!-- Official Printable A4 Register Canvas (Reproducing Page 5 of the PDF) -->
@@ -181,7 +198,7 @@
         </div>
       </section>
 
-      <!-- TAB 2: OUTSTANDING OPERATIVES PANEL & WHATSAPP REMINDER -->
+      <!-- TAB 2: OUTSTANDING OPERATIVES PANEL -->
       <section id="tab-outstanding" class="tab-content" style="display: none;">
         <div class="selector-bar">
           <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
@@ -189,6 +206,12 @@
               <label for="filter-outstanding-tbt" style="font-size: 0.75rem;">Target TBT:</label>
               <select id="filter-outstanding-tbt" class="form-control" style="min-height: 38px; font-weight: 600;">
                 <option value="" disabled selected>Loading talks...</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin: 0;" id="group-filter-outstanding-company">
+              <label for="filter-outstanding-company" style="font-size: 0.75rem;">Company Filter:</label>
+              <select id="filter-outstanding-company" class="form-control" style="min-height: 38px; font-weight: 600;">
+                <option value="">All Site Companies</option>
               </select>
             </div>
             <div style="font-size: 0.9rem; font-weight: 700; color: var(--secondary); margin-top: 1rem;" id="outstanding-compliance-summary">
@@ -201,7 +224,7 @@
               <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
               <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
             </svg>
-            <span>Copy Reminder List (WhatsApp)</span>
+            <span>Copy Reminder List</span>
           </button>
         </div>
 
@@ -223,7 +246,7 @@
         </div>
       </section>
 
-      <!-- TAB 3: IMMUTABLE AUDIT LOG & CSV EXPORT -->
+      <!-- TAB 3: IMMUTABLE AUDIT LOG & CSV EXPORT (SUPER ADMIN ONLY) -->
       <section id="tab-audit" class="tab-content" style="display: none;">
         <div class="selector-bar">
           <div style="font-weight: 700; color: var(--secondary);">
@@ -265,8 +288,15 @@
       <!-- TAB 4: OPERATIVES DIRECTORY -->
       <section id="tab-operatives" class="tab-content" style="display: none;">
         <div class="selector-bar">
-          <div style="font-weight: 700; color: var(--secondary);">
-            Site Operatives Roster
+          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <div style="font-weight: 700; color: var(--secondary);">
+              Site Operatives Roster
+            </div>
+            <div class="form-group" style="margin: 0;" id="group-filter-operatives-company">
+              <select id="filter-operatives-company" class="form-control" style="min-height: 36px; font-size: 0.85rem;">
+                <option value="">All Companies</option>
+              </select>
+            </div>
           </div>
           <button type="button" id="btn-admin-add-op" class="btn-submit" style="width: auto; min-height: 38px; padding: 0.4rem 1rem; font-size: 0.85rem;">
             + Add New Operative
@@ -293,7 +323,7 @@
         </div>
       </section>
 
-      <!-- TAB 5: TBT DOCUMENT LIBRARY & CYCLE MANAGEMENT -->
+      <!-- TAB 5: TBT DOCUMENT LIBRARY & CYCLE MANAGEMENT (SUPER ADMIN ONLY) -->
       <section id="tab-tbts" class="tab-content" style="display: none;">
         <div class="selector-bar">
           <div style="font-weight: 700; color: var(--secondary);">
@@ -325,9 +355,94 @@
         </div>
       </section>
 
+      <!-- TAB 6: COMPANIES & ACCOUNTS (SUPER ADMIN ONLY) -->
+      <section id="tab-companies" class="tab-content" style="display: none;">
+        <!-- Companies Sub-Section -->
+        <div class="selector-bar" style="margin-bottom: 0.75rem;">
+          <div>
+            <div style="font-weight: 700; color: var(--secondary); font-size: 1rem;">Site Companies Directory</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">Subcontractors and principal contractors on AGC South Site.</p>
+          </div>
+          <button type="button" id="btn-admin-add-company" class="btn-submit" style="width: auto; min-height: 38px; padding: 0.4rem 1rem; font-size: 0.85rem;">
+            + Add New Company
+          </button>
+        </div>
+
+        <div class="table-responsive" style="margin-bottom: 2rem;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Company Name</th>
+                <th>Contractor Type</th>
+                <th>Display Order</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="companies-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Coordinator Accounts Sub-Section -->
+        <div class="selector-bar" style="margin-bottom: 0.75rem;">
+          <div>
+            <div style="font-weight: 700; color: var(--secondary); font-size: 1rem;">Delegated Company Coordinator Accounts</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">Representatives who log in with their PIN to manage operatives and track sign-offs for their company.</p>
+          </div>
+          <button type="button" id="btn-admin-add-account" class="btn-submit" style="width: auto; min-height: 38px; padding: 0.4rem 1rem; font-size: 0.85rem;">
+            + Create Coordinator Account
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Account Name</th>
+                <th>Assigned Company</th>
+                <th>Access PIN</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="accounts-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
     </div>
 
   </main>
+
+  <!-- Modal: A4 Print Preview -->
+  <div id="modal-print-preview" class="modal-preview-backdrop">
+    <div class="modal-preview-toolbar">
+      <div class="modal-preview-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        <span>Official A4 Register • Print Preview</span>
+      </div>
+      <div class="modal-preview-actions">
+        <button type="button" id="btn-print-from-preview" class="btn-submit" style="width: auto; min-height: 36px; padding: 0.4rem 1.25rem;">
+          Print / Save as PDF
+        </button>
+        <button type="button" id="btn-close-print-preview" class="sig-btn" style="background: #334155; color: #fff; border-color: #475569; min-height: 36px; padding: 0.4rem 1rem;">
+          Close Preview
+        </button>
+      </div>
+    </div>
+    <div class="modal-preview-scroll">
+      <div class="print-preview-a4-sheet" id="print-preview-content">
+        <!-- Exact clone of official register sheet rendered dynamically -->
+      </div>
+    </div>
+  </div>
 
   <!-- Modal: Audit Record Detail -->
   <div id="modal-audit-detail" class="modal-overlay">
@@ -358,7 +473,9 @@
           </div>
           <div class="form-group" style="margin-bottom: 0.85rem;">
             <label for="edit-op-company">Company / Subcontractor *</label>
-            <input type="text" id="edit-op-company" class="form-control" placeholder="e.g. Three Eagles Ltd" required>
+            <select id="edit-op-company" class="form-control" required>
+              <!-- Populated dynamically -->
+            </select>
           </div>
           <div class="form-group" style="margin-bottom: 0.85rem;">
             <label for="edit-op-role">Role / Position</label>
@@ -534,7 +651,9 @@
           </div>
           <div class="form-group" style="margin-bottom: 0.85rem;">
             <label for="admin-op-company">Company *</label>
-            <input type="text" id="admin-op-company" class="form-control" value="Three Eagles Ltd" required>
+            <select id="admin-op-company" class="form-control" required>
+              <!-- Populated dynamically -->
+            </select>
           </div>
           <div class="form-group" style="margin-bottom: 0.85rem;">
             <label for="admin-op-role">Role</label>
@@ -549,6 +668,67 @@
       <div class="modal-footer">
         <button type="button" id="btn-cancel-admin-op" class="sig-btn">Cancel</button>
         <button type="button" id="btn-save-admin-op" class="btn-submit" style="width: auto; min-height: 40px; padding: 0.5rem 1.25rem;">Save Operative</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Company (Super Admin) -->
+  <div id="modal-add-company" class="modal-overlay">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>Add Site Company</h3>
+        <button type="button" id="btn-close-add-company" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-add-company">
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label for="new-company-name">Company Name *</label>
+            <input type="text" id="new-company-name" class="form-control" placeholder="e.g. Scaffolding Specialists Ltd" required>
+          </div>
+          <div class="form-group">
+            <label for="new-company-order">Display Order (Sorting weight, 1 = top)</label>
+            <input type="number" id="new-company-order" class="form-control" value="10">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancel-add-company" class="sig-btn">Cancel</button>
+        <button type="button" id="btn-save-new-company" class="btn-submit" style="width: auto; min-height: 38px; padding: 0.4rem 1.25rem;">Save Company</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Coordinator Account (Super Admin) -->
+  <div id="modal-add-account" class="modal-overlay">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3>Create Company Coordinator Account</h3>
+        <button type="button" id="btn-close-add-account" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-add-account">
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label for="new-acc-name">Coordinator / Representative Name *</label>
+            <input type="text" id="new-acc-name" class="form-control" placeholder="e.g. John Smith (Ruddy Supervisor)" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label for="new-acc-company">Assigned Company *</label>
+            <select id="new-acc-company" class="form-control" required>
+              <!-- Populated dynamically with active companies -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="new-acc-pin">4 to 6-Digit Access PIN *</label>
+            <input type="text" id="new-acc-pin" class="form-control" placeholder="e.g. 5831" maxlength="6" inputmode="numeric" required>
+            <small style="color: var(--text-muted); margin-top: 0.25rem;">
+              The company coordinator uses this PIN on the access gate to sign in to their company portal.
+            </small>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancel-add-account" class="sig-btn">Cancel</button>
+        <button type="button" id="btn-save-new-account" class="btn-submit" style="width: auto; min-height: 38px; padding: 0.4rem 1.25rem;">Create Account</button>
       </div>
     </div>
   </div>

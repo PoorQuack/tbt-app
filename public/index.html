@@ -161,25 +161,29 @@
           </div>
         </div>
 
-        <!-- Step 2: Operative Profile Selection & 4-Digit Security PIN (Locked until comprehension passed) -->
+        <!-- Step 2: Operative Profile Selection (Locked until comprehension passed) -->
         <div id="step-operative" class="step-block step-locked">
           <div class="step-title">
             <span class="step-number">2</span>
-            <span>Operative Authentication & Details</span>
+            <span>Operative Selection & Details</span>
           </div>
 
           <div class="form-grid">
+            <div class="form-group">
+              <label for="operative-company">Company / Subcontractor *</label>
+              <select id="operative-company" class="form-control" disabled>
+                <option value="Three Eagles Ltd">Three Eagles Ltd</option>
+              </select>
+            </div>
+
             <div class="form-group">
               <label for="operative-select">Operative Full Name *</label>
               <select id="operative-select" class="form-control" disabled>
                 <option value="">-- Choose Operative --</option>
               </select>
-              <a href="javascript:void(0)" id="btn-quick-add-operative" class="quick-add-link">+ New starter not listed? Register name</a>
-            </div>
-
-            <div class="form-group">
-              <label for="operative-company">Company / Subcontractor *</label>
-              <input type="text" id="operative-company" class="form-control" value="Three Eagles Ltd" readonly>
+              <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.35rem; display: block;">
+                Not listed? Ask your company coordinator or site admin to add you.
+              </small>
             </div>
           </div>
         </div>
@@ -243,39 +247,6 @@
 
   </main>
 
-  <!-- Modal: Add New Operative Starter -->
-  <div id="modal-add-operative" class="modal-overlay">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3>Register New Operative Starter</h3>
-        <button type="button" id="btn-close-modal-add" class="modal-close-btn">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form id="form-add-operative">
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label for="new-op-name">Full Name *</label>
-            <input type="text" id="new-op-name" class="form-control" placeholder="e.g. Andrei Bobaru" required>
-          </div>
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label for="new-op-company">Company / Subcontractor *</label>
-            <input type="text" id="new-op-company" class="form-control" value="Three Eagles Ltd" required>
-          </div>
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label for="new-op-role">Role / Position</label>
-            <input type="text" id="new-op-role" class="form-control" placeholder="e.g. Labourer, Carpenter, Painter">
-          </div>
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label for="new-op-trade">Trade</label>
-            <input type="text" id="new-op-trade" class="form-control" placeholder="e.g. General Labour, Carpentry">
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" id="btn-cancel-add-op" class="sig-btn">Cancel</button>
-        <button type="button" id="btn-save-new-op" class="btn-submit" style="width: auto; padding: 0.5rem 1.25rem; font-size: 0.9rem; min-height: 40px;">Save & Select</button>
-      </div>
-    </div>
-  </div>
 
   <!-- Modal: Submission Success Receipt -->
   <div id="modal-success-receipt" class="modal-overlay">
@@ -310,7 +281,7 @@
             Done
           </button>
           <button type="button" id="btn-done-next-op" class="sig-btn" style="text-align: center; justify-content: center; padding: 0.75rem;">
-            Sign Off Another Operative
+            Sign Off Next Operative
           </button>
         </div>
       </div>

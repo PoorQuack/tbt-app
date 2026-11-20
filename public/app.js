@@ -1,6 +1,6 @@
 // public/app.js
 // Client-side Application Logic for TBT Digital Sign-Off
-// Features: Dynamic TBT selector, scroll gate, comprehension gate, 4-digit operative PIN, stroke-validated signature pad
+// Features: Dynamic TBT selector, company selector, scroll gate, comprehension gate, stroke-validated signature pad
 
 (function () {
   "use strict";
@@ -9,6 +9,7 @@
   const state = {
     currentTbt: null,
     tbtsList: [],
+    companies: [],
     operatives: [],
     scrolledToBottom: false,
     comprehensionPassed: false,
@@ -50,11 +51,10 @@
     comprehensionOptionsContainer: document.getElementById("comprehension-options-container"),
     comprehensionFeedback: document.getElementById("comprehension-feedback"),
 
-    // Step 2: Operative Profile
+    // Step 2: Operative Profile & Company Selection
     stepOperative: document.getElementById("step-operative"),
-    operativeSelect: document.getElementById("operative-select"),
     operativeCompany: document.getElementById("operative-company"),
-    btnQuickAddOperative: document.getElementById("btn-quick-add-operative"),
+    operativeSelect: document.getElementById("operative-select"),
 
     // Step 3: Notes
     stepNotes: document.getElementById("step-notes"),
@@ -71,15 +71,6 @@
     btnSubmitSignoff: document.getElementById("btn-submit-signoff"),
 
     // Modals
-    modalAddOperative: document.getElementById("modal-add-operative"),
-    btnCloseModalAdd: document.getElementById("btn-close-modal-add"),
-    btnCancelAddOp: document.getElementById("btn-cancel-add-op"),
-    btnSaveNewOp: document.getElementById("btn-save-new-op"),
-    newOpName: document.getElementById("new-op-name"),
-    newOpCompany: document.getElementById("new-op-company"),
-    newOpRole: document.getElementById("new-op-role"),
-    newOpTrade: document.getElementById("new-op-trade"),
-
     modalSuccessReceipt: document.getElementById("modal-success-receipt"),
     receiptOpName: document.getElementById("receipt-op-name"),
     receiptTbtCode: document.getElementById("receipt-tbt-code"),
@@ -102,6 +93,7 @@
   async function init() {
     setupCanvas();
     setupEventListeners();
+    await loadCompanies();
     await loadOperatives();
     await loadTbtsDropdown();
   }
@@ -116,7 +108,7 @@
     function resizeCanvas() {
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      
+
       let prevImg = null;
       if (state.hasSignature && canvas.width > 0) {
         prevImg = canvas.toDataURL();
@@ -217,6 +209,33 @@
     elements.sigStatus.textContent = "Awaiting signature";
     elements.sigStatus.style.color = "var(--text-muted)";
     updateSubmitButtonState();
+  }
+
+  // --------------------------------------------------------------------------
+  // Dynamic Companies Loading
+  // --------------------------------------------------------------------------
+  async function loadCompanies() {
+    try {
+      const res = await fetch("/api/companies");
+      const json = await res.json();
+      if (!json.success || !json.data) return;
+
+      state.companies = json.data;
+      const compSelect = elements.operativeCompany;
+      compSelect.innerHTML = "";
+
+      json.data.forEach((comp) => {
+        const opt = document.createElement("option");
+        opt.value = comp.name;
+        opt.textContent = comp.name;
+        if (comp.is_default) {
+          opt.selected = true;
+        }
+        compSelect.appendChild(opt);
+      });
+    } catch (err) {
+      console.error("Error loading companies:", err);
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -432,7 +451,7 @@
   }
 
   // --------------------------------------------------------------------------
-  // Operatives Directory
+  // Operatives Directory & Company Scoped Filtering
   // --------------------------------------------------------------------------
   async function loadOperatives() {
     try {
@@ -440,19 +459,25 @@
       const json = await res.json();
       if (json.success && json.data) {
         state.operatives = json.data;
-        renderOperativesDropdown(json.data);
+        renderOperativesDropdown();
       }
     } catch (err) {
       console.error("Error loading operatives:", err);
     }
   }
 
-  function renderOperativesDropdown(list) {
+  function renderOperativesDropdown() {
     const sel = elements.operativeSelect;
+    const selectedCompany = elements.operativeCompany.value;
     const currentVal = sel.value;
+
     sel.innerHTML = '<option value="">-- Choose Operative --</option>';
 
-    list.forEach((op) => {
+    const filtered = state.operatives.filter(
+      (op) => !selectedCompany || op.company === selectedCompany
+    );
+
+    filtered.forEach((op) => {
       const opt = document.createElement("option");
       opt.value = op.id;
       opt.textContent = `${op.name} (${op.role || "Operative"})`;
@@ -460,7 +485,13 @@
       sel.appendChild(opt);
     });
 
-    if (currentVal) sel.value = currentVal;
+    if (currentVal && filtered.some((o) => String(o.id) === String(currentVal))) {
+      sel.value = currentVal;
+    } else {
+      sel.value = "";
+    }
+
+    updateSubmitButtonState();
   }
 
   // --------------------------------------------------------------------------
@@ -477,25 +508,15 @@
       }
     });
 
-    elements.operativeSelect.addEventListener("change", (e) => {
-      const selected = elements.operativeSelect.options[elements.operativeSelect.selectedIndex];
-      if (selected && selected.dataset.company) {
-        elements.operativeCompany.value = selected.dataset.company;
-      }
+    elements.operativeCompany.addEventListener("change", () => {
+      renderOperativesDropdown();
       updateSubmitButtonState();
     });
 
-    elements.btnQuickAddOperative.addEventListener("click", () => {
-      elements.modalAddOperative.classList.add("active");
-    });
-    elements.btnCloseModalAdd.addEventListener("click", () => {
-      elements.modalAddOperative.classList.remove("active");
-    });
-    elements.btnCancelAddOp.addEventListener("click", () => {
-      elements.modalAddOperative.classList.remove("active");
+    elements.operativeSelect.addEventListener("change", () => {
+      updateSubmitButtonState();
     });
 
-    elements.btnSaveNewOp.addEventListener("click", handleSaveNewOperative);
     elements.btnSubmitSignoff.addEventListener("click", handleSubmitSignoff);
 
     if (elements.btnCloseReceipt) {
@@ -535,10 +556,11 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="20 6 9 17 4 12"></polyline>
         </svg>
-        <span>Correct! Comprehension verified. Select your profile, enter your 4-digit PIN, and sign below.</span>
+        <span>Correct! Comprehension verified. Select your company, choose your profile, and sign below.</span>
       `;
 
       elements.stepOperative.classList.remove("step-locked");
+      elements.operativeCompany.disabled = false;
       elements.operativeSelect.disabled = false;
       elements.stepNotes.classList.remove("step-locked");
       elements.tbtNotes.disabled = false;
@@ -558,6 +580,7 @@
       `;
 
       elements.stepOperative.classList.add("step-locked");
+      elements.operativeCompany.disabled = true;
       elements.operativeSelect.disabled = true;
       elements.stepNotes.classList.add("step-locked");
       elements.tbtNotes.disabled = true;
@@ -578,55 +601,6 @@
       !state.isSubmitting;
 
     elements.btnSubmitSignoff.disabled = !canSubmit;
-  }
-
-  async function handleSaveNewOperative() {
-    const name = elements.newOpName.value.trim();
-    const company = elements.newOpCompany.value.trim() || "Three Eagles Ltd";
-    const role = elements.newOpRole.value.trim() || "Operative";
-    const trade = elements.newOpTrade.value.trim() || "General Labour";
-
-    if (!name) {
-      showToast("Please enter operative full name.", "error");
-      elements.newOpName.focus();
-      return;
-    }
-
-    elements.btnSaveNewOp.disabled = true;
-    elements.btnSaveNewOp.textContent = "Saving...";
-
-    try {
-      const res = await fetch("/api/operatives", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, company, role, trade }),
-      });
-      const json = await res.json();
-
-      if (!json.success) {
-        showToast(json.error || "Failed to register operative.", "error");
-        return;
-      }
-
-      showToast(`Registered ${name} successfully!`, "success");
-      elements.modalAddOperative.classList.remove("active");
-      elements.newOpName.value = "";
-      elements.newOpRole.value = "";
-      elements.newOpTrade.value = "";
-
-      await loadOperatives();
-      if (json.data && json.data.id) {
-        elements.operativeSelect.value = json.data.id;
-        elements.operativeCompany.value = company;
-      }
-      updateSubmitButtonState();
-    } catch (err) {
-      console.error(err);
-      showToast("Network error creating operative.", "error");
-    } finally {
-      elements.btnSaveNewOp.disabled = false;
-      elements.btnSaveNewOp.textContent = "Save & Select";
-    }
   }
 
   async function handleSubmitSignoff() {
@@ -715,6 +689,7 @@
     elements.comprehensionFeedback.style.display = "none";
 
     elements.stepOperative.classList.add("step-locked");
+    elements.operativeCompany.disabled = true;
     elements.operativeSelect.value = "";
     elements.operativeSelect.disabled = true;
 
