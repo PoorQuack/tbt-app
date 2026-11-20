@@ -1581,7 +1581,7 @@
       });
       const json = await res.json();
       if (json.success) {
-        showToast(`Toolbox Talk ${docCode} created successfully!`, "success");
+        showToast(json.message || `Toolbox Talk ${docCode} saved successfully!`, "success");
         elements.modalAddTbt.classList.remove("active");
         elements.formAddTbt.reset();
         if (elements.pdfUploadStatus) {

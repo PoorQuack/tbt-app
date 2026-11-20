@@ -462,6 +462,54 @@ export async function onRequestPost(context) {
           ? comprehension_options_json
           : JSON.stringify(comprehension_options_json || ["Yes", "No"]);
 
+      const cleanCode = doc_code.trim();
+
+      // Check if TBT already exists; if so, update in place with new revision / content
+      const existingTbt = await db
+        .prepare("SELECT id, doc_code FROM tbts WHERE doc_code = ? OR id = ?")
+        .bind(cleanCode, cleanCode)
+        .first();
+
+      if (existingTbt) {
+        await db
+          .prepare(
+            `UPDATE tbts SET
+              title = ?, doc_owner = ?, last_revision = ?, next_revision = ?, category = ?,
+              briefing_week = ?, prepare_text = ?, reason_text = ?, why_text = ?, outline_text = ?,
+              content_json = ?, comprehension_question = ?, comprehension_options_json = ?,
+              correct_option_index = ?, active = 1
+             WHERE doc_code = ? OR id = ?`
+          )
+          .bind(
+            title.trim(),
+            doc_owner.trim(),
+            last_revision.trim(),
+            next_revision.trim() || "01/01/2028",
+            category.trim(),
+            briefing_week.trim(),
+            prepare_text.trim(),
+            reason_text.trim(),
+            why_text.trim(),
+            outline_text.trim(),
+            contentStr,
+            comprehension_question.trim(),
+            optionsStr,
+            parseInt(correct_option_index, 10),
+            cleanCode,
+            cleanCode
+          )
+          .run();
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: `Toolbox Talk '${cleanCode}' updated successfully with latest PDF revisions.`,
+            updated: true,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
       await db
         .prepare(
           `INSERT INTO tbts (
@@ -472,8 +520,8 @@ export async function onRequestPost(context) {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
         )
         .bind(
-          doc_code.trim(),
-          doc_code.trim(),
+          cleanCode,
+          cleanCode,
           title.trim(),
           doc_owner.trim(),
           last_revision.trim(),
@@ -492,7 +540,7 @@ export async function onRequestPost(context) {
         .run();
 
       return new Response(
-        JSON.stringify({ success: true, message: `Toolbox Talk '${doc_code}' added successfully.` }),
+        JSON.stringify({ success: true, message: `Toolbox Talk '${cleanCode}' created successfully.` }),
         { status: 201, headers: { "Content-Type": "application/json" } }
       );
     }
