@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Toolbox Talk Sign-Off | Three Eagles Ltd & AIM</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23941b1b'/><text x='50' y='65' font-size='50' font-weight='bold' fill='white' text-anchor='middle'>AIM</text></svg>">
+</head>
+<body>
+
+  <!-- Site Top Header -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand-wrapper">
+        <div class="aim-logo-badge">
+          <span>AIM</span>
+          <span class="aim-logo-sub">Zero Harm</span>
+        </div>
+        <div class="site-title-group">
+          <h1>Toolbox Talk (TBT) Digital Sign-Off</h1>
+          <p>Three Eagles Ltd • AGC South Site (Avondale)</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a href="admin.html" class="nav-btn" title="Supervisor & Admin Portal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>Admin Portal</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Body Content -->
+  <main class="main-content">
+
+    <!-- TBT Selector Bar -->
+    <div class="selector-bar">
+      <div class="selector-label">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <span>Active Toolbox Talk:</span>
+      </div>
+      <select id="tbt-select" class="tbt-select" aria-label="Select Toolbox Talk">
+        <option value="AVC032" selected>AVC032 - Safe Use of Step Ladder</option>
+        <option value="AVC011">AVC011 - Personal Protective Equipment (PPE)</option>
+        <option value="AVC022">AVC022 - Dust Kills - Control of Dust Hazards</option>
+        <option value="AVC024">AVC024 - Housekeeping & Site Waste Management</option>
+      </select>
+    </div>
+
+    <!-- Official TBT Document Header (matches official PDF) -->
+    <section class="tbt-doc-banner">
+      <div class="banner-red-strip">
+        <div class="doc-type">Toolbox Talk</div>
+        <div class="aim-corner">
+          <div class="aim-corner-logo">ΛIM</div>
+          <div class="aim-corner-motto">For Zero Accidents / Incidents</div>
+        </div>
+      </div>
+      <div class="banner-slate-strip">
+        <h2 id="doc-title-text" class="banner-title">Safe Use of Step Ladder AVC032</h2>
+        <span id="doc-category-badge" class="banner-badge">Working at Height</span>
+      </div>
+      <div class="doc-metadata-bar">
+        <span>Owner: <strong id="doc-owner-text">Operations Director</strong></span>
+        <span>Document No: <strong id="doc-code-text">AVC032</strong></span>
+        <span>Last Revision (LR): <strong id="doc-lr-text">05/01/2026</strong></span>
+        <span>Next Revision (NR): <strong id="doc-nr-text">04/01/2028</strong></span>
+      </div>
+    </section>
+
+    <!-- Official PDF Page 1 Box: Prepare / Reason / Why / Outline -->
+    <div class="official-summary-box">
+      <div class="summary-item">
+        <strong>Prepare:</strong> <span id="summary-prepare">Quiet location? No distractions? Talk aids ready?</span>
+      </div>
+      <div class="summary-item">
+        <strong>Reason:</strong> <span id="summary-reason">To ensure operatives understand the risk of working at height and are safely working with step ladders.</span>
+      </div>
+      <div class="summary-item">
+        <strong>Why:</strong> <span id="summary-why">To prevent injuries from falls from step ladder</span>
+      </div>
+      <div class="summary-item">
+        <strong>Outline:</strong> <span id="summary-outline">This TBT covers the safe use of step ladders.</span>
+      </div>
+    </div>
+
+    <!-- Content Card with Scroll Defensibility Tracking -->
+    <section class="content-card">
+      <div class="content-header-status">
+        <div style="font-weight: 700; font-size: 0.9rem; color: var(--secondary);">
+          Toolbox Talk Content Review
+        </div>
+        <div id="scroll-status-badge" class="scroll-status-pill pending">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span id="scroll-status-text">Scroll to bottom to unlock sign-off</span>
+        </div>
+      </div>
+      <div class="reading-progress-track">
+        <div id="reading-progress-bar" class="reading-progress-bar"></div>
+      </div>
+
+      <!-- Scrollable Text Area -->
+      <div id="tbt-content-container" class="tbt-body-scrollable">
+        <!-- Rendered dynamically via app.js -->
+        <div class="tbt-loading-state" style="text-align: center; padding: 2rem; color: #64748b;">
+          Loading Toolbox Talk content...
+        </div>
+      </div>
+    </section>
+
+    <!-- Legal Defensibility Sign-Off Card -->
+    <section class="signoff-card">
+      <div class="signoff-card-header">
+        <h2>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          <span>Operative Sign-Off & Verification</span>
+        </h2>
+        <span class="compliance-badge">UK HSE Compliant</span>
+      </div>
+
+      <div class="signoff-body">
+
+        <!-- Step 1: Comprehension Check (Locked until scrolled to bottom) -->
+        <div id="step-comprehension" class="step-block step-locked">
+          <div class="step-title">
+            <span class="step-number">1</span>
+            <span>Comprehension Check (Mandatory Verification)</span>
+          </div>
+
+          <div id="comprehension-lock-warning" class="lock-alert">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span>Please scroll through the complete Toolbox Talk above to unlock this question.</span>
+          </div>
+
+          <div id="comprehension-box" style="display: none;">
+            <div id="comprehension-question-text" class="question-prompt">
+              Q: When should you carry out a Pre-use check?
+            </div>
+            <div id="comprehension-options-container" class="options-list">
+              <!-- Options injected dynamically -->
+            </div>
+            <div id="comprehension-feedback" class="comprehension-feedback"></div>
+          </div>
+        </div>
+
+        <!-- Step 2: Operative Profile Selection (Locked until comprehension passed) -->
+        <div id="step-operative" class="step-block step-locked">
+          <div class="step-title">
+            <span class="step-number">2</span>
+            <span>Operative Details</span>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="operative-select">Operative Full Name *</label>
+              <select id="operative-select" class="form-control" disabled>
+                <option value="">-- Choose Operative --</option>
+              </select>
+              <a href="javascript:void(0)" id="btn-quick-add-operative" class="quick-add-link">+ New starter not listed? Register name</a>
+            </div>
+
+            <div class="form-group">
+              <label for="operative-company">Company / Subcontractor *</label>
+              <input type="text" id="operative-company" class="form-control" value="Three Eagles Ltd" readonly>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Questions / Hazards / Notes (Mirrors PDF Notes Box) -->
+        <div id="step-notes" class="step-block step-locked">
+          <div class="step-title">
+            <span class="step-number">3</span>
+            <span>Questions / Hazards Identified / Notes (Optional)</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+            Mirrors the official AIM TBT Notes box: Note any site-specific questions, defective ladders tagged out, or height hazards raised.
+          </p>
+          <textarea id="tbt-notes" class="form-control textarea-control" placeholder="Enter any notes, questions asked, or hazards reported... (Leave blank if none)" disabled></textarea>
+        </div>
+
+        <!-- Step 4: Digital Signature Pad (Locked until comprehension passed & operative selected) -->
+        <div id="step-signature" class="step-block step-locked">
+          <div class="step-title">
+            <span class="step-number">4</span>
+            <span>Operative Signature *</span>
+          </div>
+
+          <div class="signature-wrapper">
+            <div class="signature-canvas-container">
+              <canvas id="signature-canvas"></canvas>
+              <div id="signature-hint" class="canvas-placeholder-hint">
+                Draw your legal signature here with finger or stylus
+              </div>
+            </div>
+            <div class="signature-toolbar">
+              <button type="button" id="btn-clear-sig" class="sig-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6h18"></path>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                Clear Signature
+              </button>
+              <span id="sig-status" class="sig-status-badge">Awaiting signature</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 5: Statutory Legal Declaration & Submission -->
+        <div class="step-block">
+          <div class="legal-declaration-box">
+            <strong>UK Health & Safety at Work etc. Act 1974 Declaration:</strong><br>
+            I confirm that I have reviewed the entirety of this Toolbox Talk (<span id="declaration-doc-code">AVC032</span>), have answered the comprehension question, had the opportunity to raise questions and hazards, and agree to follow all safe working procedures outlined on site.
+          </div>
+
+          <button type="button" id="btn-submit-signoff" class="btn-submit" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Submit Digital Sign-Off</span>
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal: Add New Operative Starter -->
+  <div id="modal-add-operative" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Register New Operative Starter</h3>
+        <button type="button" id="btn-close-modal-add" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-add-operative">
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="new-op-name">Full Name *</label>
+            <input type="text" id="new-op-name" class="form-control" placeholder="e.g. Andrei Bobaru" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="new-op-company">Company / Subcontractor *</label>
+            <input type="text" id="new-op-company" class="form-control" value="Three Eagles Ltd" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="new-op-role">Role / Position</label>
+            <input type="text" id="new-op-role" class="form-control" placeholder="e.g. Labourer, Carpenter, Painter">
+          </div>
+          <div class="form-group">
+            <label for="new-op-trade">Trade</label>
+            <input type="text" id="new-op-trade" class="form-control" placeholder="e.g. General Labour, Carpentry">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancel-add-op" class="sig-btn">Cancel</button>
+        <button type="button" id="btn-save-new-op" class="btn-submit" style="width: auto; padding: 0.5rem 1.25rem; font-size: 0.9rem; min-height: 40px;">Save & Select</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Submission Success Receipt -->
+  <div id="modal-success-receipt" class="modal-overlay">
+    <div class="modal-card" style="text-align: center;">
+      <div class="modal-header" style="background-color: var(--success);">
+        <h3 style="display: flex; align-items: center; gap: 0.5rem; justify-content: center; width: 100%;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          <span>Sign-Off Recorded Successfully</span>
+        </h3>
+      </div>
+      <div class="modal-body" style="padding: 2rem 1.5rem;">
+        <div style="font-size: 1.1rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.5rem;">
+          Thank you, <span id="receipt-op-name">Operative</span>!
+        </div>
+        <p style="font-size: 0.9rem; color: #475569; margin-bottom: 1.25rem;">
+          Your attendance and comprehension sign-off for <strong id="receipt-tbt-code">AVC032</strong> has been securely logged with an immutable UK audit timestamp.
+        </p>
+
+        <div style="background-color: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; text-align: left; font-size: 0.85rem; margin-bottom: 1.5rem;">
+          <div style="margin-bottom: 0.4rem;"><strong>Record ID:</strong> #<span id="receipt-record-id">101</span></div>
+          <div style="margin-bottom: 0.4rem;"><strong>Signed Timestamp:</strong> <span id="receipt-timestamp">2026-11-20 11:30 UTC</span></div>
+          <div style="margin-bottom: 0.4rem;"><strong>Company:</strong> <span id="receipt-company">Three Eagles Ltd</span></div>
+          <div><strong>HSE Status:</strong> <span style="color: var(--success); font-weight: 700;">Verified & Legal</span></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <button type="button" id="btn-done-next-op" class="btn-submit" style="width: 100%;">
+            Sign Off Next Operative
+          </button>
+          <a href="admin.html" class="sig-btn" style="text-align: center; justify-content: center; text-decoration: none; padding: 0.75rem;">
+            Go to Admin & View Official Register
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

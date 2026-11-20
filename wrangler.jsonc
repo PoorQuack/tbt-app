@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tbt-app",
+  "compatibility_date": "2024-11-01",
+  "pages_build_output_dir": "./public",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tbt-db",
+      "database_id": "89224256-b09c-43b0-89cb-333bcbbcaf78",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TBT Supervisor Portal & Official A4 Register | Three Eagles Ltd</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23941b1b'/><text x='50' y='65' font-size='50' font-weight='bold' fill='white' text-anchor='middle'>AIM</text></svg>">
+</head>
+<body>
+
+  <!-- Site Header -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand-wrapper">
+        <div class="aim-logo-badge">
+          <span>AIM</span>
+          <span class="aim-logo-sub">Supervisor</span>
+        </div>
+        <div class="site-title-group">
+          <h1>TBT Compliance & Sign-Off Management</h1>
+          <p>Three Eagles Ltd • AGC South Site Records</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a href="index.html" class="nav-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          <span>Operative View</span>
+        </a>
+        <button type="button" id="btn-logout" class="nav-btn" style="display: none;">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+
+    <!-- Auth PIN Gate (if not authenticated) -->
+    <section id="auth-gate-card" class="content-card" style="max-width: 420px; margin: 3rem auto; padding: 2rem;">
+      <div style="text-align: center; margin-bottom: 1.5rem;">
+        <div style="background-color: var(--primary-light); color: var(--primary); width: 56px; height: 56px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+        <h2 style="font-size: 1.25rem; color: var(--secondary);">Supervisor Access Gate</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem;">
+          Enter site supervisor PIN to view audit logs and export official sign-off registers.
+        </p>
+      </div>
+
+      <form id="form-auth-pin">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label for="admin-pin-input">Supervisor Security PIN</label>
+          <input type="password" id="admin-pin-input" class="form-control" placeholder="Default: 2026" autofocus required>
+        </div>
+        <button type="submit" id="btn-submit-pin" class="btn-submit">
+          <span>Authenticate & Access</span>
+        </button>
+      </form>
+      <div id="auth-pin-error" style="color: var(--danger); font-size: 0.85rem; font-weight: 600; margin-top: 0.75rem; text-align: center; display: none;"></div>
+    </section>
+
+    <!-- Admin Portal Protected View -->
+    <div id="admin-portal-view" style="display: none;">
+
+      <!-- Metrics Cards -->
+      <div class="admin-stats-grid">
+        <div class="stat-card">
+          <div class="stat-title">Total Sign-Offs (All Time)</div>
+          <div id="stat-total-signoffs" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Signed Today</div>
+          <div id="stat-today-signoffs" class="stat-value" style="color: var(--primary);">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Registered Operatives</div>
+          <div id="stat-total-operatives" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Active TBT Modules</div>
+          <div id="stat-total-tbts" class="stat-value">0</div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="admin-tabs no-print">
+        <button type="button" class="tab-btn active" data-tab="tab-register">Official A4 Register (Print / PDF)</button>
+        <button type="button" class="tab-btn" data-tab="tab-audit">Immutable Audit Log</button>
+        <button type="button" class="tab-btn" data-tab="tab-operatives">Operatives Directory</button>
+        <button type="button" class="tab-btn" data-tab="tab-tbts">TBT Document Library</button>
+      </nav>
+
+      <!-- TAB 1: OFFICIAL A4 REGISTER (PRINTABLE / PDF EXPORT) -->
+      <section id="tab-register" class="tab-content">
+        <!-- Controls Bar -->
+        <div class="selector-bar no-print">
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+            <div class="form-group" style="margin: 0;">
+              <label for="filter-register-tbt" style="font-size: 0.75rem;">Select TBT:</label>
+              <select id="filter-register-tbt" class="form-control" style="min-height: 38px; font-weight: 600;">
+                <option value="AVC032" selected>AVC032 - Safe Use of Step Ladder</option>
+                <option value="AVC011">AVC011 - Personal Protective Equipment (PPE)</option>
+                <option value="AVC022">AVC022 - Dust Kills - Control of Dust Hazards</option>
+                <option value="AVC024">AVC024 - Housekeeping & Site Waste Management</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label for="filter-register-date" style="font-size: 0.75rem;">Date Filter:</label>
+              <input type="date" id="filter-register-date" class="form-control" style="min-height: 38px;">
+            </div>
+            <button type="button" id="btn-refresh-register" class="sig-btn" style="margin-top: 1rem;">
+              Refresh
+            </button>
+          </div>
+
+          <button type="button" id="btn-print-register" class="btn-submit" style="width: auto; min-height: 40px; padding: 0.5rem 1.25rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 6 2 18 2 18 9"></polyline>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+              <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            <span>Print Official A4 Register / Save PDF</span>
+          </button>
+        </div>
+
+        <!-- The Official Printable A4 Register Canvas (Reproducing Page 5 of the PDF) -->
+        <div id="printable-register-container" class="printable-area">
+          <div class="official-register-sheet">
+
+            <!-- Official Top Header Bar -->
+            <div class="print-header-top">
+              <div class="print-title-box">
+                <h1>Toolbox Talk</h1>
+              </div>
+              <div class="print-logo-box">
+                <div class="aim-text">ΛIM</div>
+                <div class="aim-sub">FOR ZERO ACCIDENTS / INCIDENTS</div>
+              </div>
+            </div>
+
+            <!-- Sub Header -->
+            <div class="print-header-sub">
+              <span id="print-sub-title">Safe Use of Step Ladder AVC032</span>
+              <span id="print-site-name">AGC South Site - Three Eagles Ltd</span>
+            </div>
+
+            <!-- The Official 4-Column Register Table: Date | Name | Signature | Company -->
+            <table class="register-table">
+              <thead>
+                <tr>
+                  <th style="width: 15%;">Date</th>
+                  <th style="width: 32%;">Name</th>
+                  <th style="width: 28%;">Signature</th>
+                  <th style="width: 25%;">Company</th>
+                </tr>
+              </thead>
+              <tbody id="register-table-body">
+                <!-- Dynamically populated rows with signature images -->
+              </tbody>
+            </table>
+
+            <!-- Official Legal Footer Strip (matching PDF exactly) -->
+            <div class="print-footer-legal">
+              <div>
+                Document Owner: <span id="print-footer-owner">Operations Director</span> &nbsp;|&nbsp;
+                Document Number: <span id="print-footer-code">AVC032</span> &nbsp;|&nbsp;
+                LR: <span id="print-footer-lr">05/01/2026</span> &nbsp;|&nbsp;
+                NR: <span id="print-footer-nr">04/01/2028</span>
+              </div>
+              <div>
+                Official Site Record • Health & Safety at Work Act 1974
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: IMMUTABLE AUDIT LOG & CSV EXPORT -->
+      <section id="tab-audit" class="tab-content" style="display: none;">
+        <div class="selector-bar">
+          <div style="font-weight: 700; color: var(--secondary);">
+            Complete Immutable Sign-Off Audit Trail
+          </div>
+          <button type="button" id="btn-export-csv" class="sig-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Export to CSV
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Timestamp (UTC)</th>
+                <th>TBT Code</th>
+                <th>Operative Name</th>
+                <th>Company</th>
+                <th>Comprehension</th>
+                <th>Notes / Hazards</th>
+                <th>Signature</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="audit-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 3: OPERATIVES DIRECTORY -->
+      <section id="tab-operatives" class="tab-content" style="display: none;">
+        <div class="selector-bar">
+          <div style="font-weight: 700; color: var(--secondary);">
+            Site Operatives Roster
+          </div>
+          <button type="button" id="btn-admin-add-op" class="btn-submit" style="width: auto; min-height: 38px; padding: 0.4rem 1rem; font-size: 0.85rem;">
+            + Add New Operative
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Full Name</th>
+                <th>Company</th>
+                <th>Role</th>
+                <th>Trade</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="operatives-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 4: TBT DOCUMENT LIBRARY -->
+      <section id="tab-tbts" class="tab-content" style="display: none;">
+        <div class="selector-bar">
+          <div style="font-weight: 700; color: var(--secondary);">
+            Standard AIM Toolbox Talk Modules
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Doc Code</th>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Document Owner</th>
+                <th>Last Revision (LR)</th>
+                <th>Next Revision (NR)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tbts-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- Modal: Audit Record Detail -->
+  <div id="modal-audit-detail" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Sign-Off Legal Audit Record</h3>
+        <button type="button" id="btn-close-audit-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body" id="audit-detail-content">
+        <!-- Rendered dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-close-audit-modal2" class="sig-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Operative via Admin -->
+  <div id="modal-admin-op" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Add Operative to Roster</h3>
+        <button type="button" id="btn-close-admin-op" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-admin-add-op">
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label for="admin-op-name">Full Name *</label>
+            <input type="text" id="admin-op-name" class="form-control" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label for="admin-op-company">Company *</label>
+            <input type="text" id="admin-op-company" class="form-control" value="Three Eagles Ltd" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label for="admin-op-role">Role</label>
+            <input type="text" id="admin-op-role" class="form-control" placeholder="e.g. Labourer, Painter, Joiner">
+          </div>
+          <div class="form-group">
+            <label for="admin-op-trade">Trade</label>
+            <input type="text" id="admin-op-trade" class="form-control" placeholder="e.g. General, Finishing">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancel-admin-op" class="sig-btn">Cancel</button>
+        <button type="button" id="btn-save-admin-op" class="btn-submit" style="width: auto; min-height: 40px; padding: 0.5rem 1.25rem;">Save Operative</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
