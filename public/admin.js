@@ -125,6 +125,9 @@
     btnSaveNewTbt: document.getElementById("btn-save-new-tbt"),
     formAddTbt: document.getElementById("form-add-tbt"),
     newTbtCode: document.getElementById("new-tbt-code"),
+    tbtDuplicateWarning: document.getElementById("tbt-duplicate-warning"),
+    tbtDuplicateInfo: document.getElementById("tbt-duplicate-info"),
+    chkConfirmOverwriteTbt: document.getElementById("chk-confirm-overwrite-tbt"),
     newTbtTitle: document.getElementById("new-tbt-title"),
     newTbtOwner: document.getElementById("new-tbt-owner"),
     newTbtCategory: document.getElementById("new-tbt-category"),
@@ -530,6 +533,9 @@
 
     // Add TBT Modal
     elements.btnAdminAddTbt.addEventListener("click", () => {
+      if (elements.tbtDuplicateWarning) elements.tbtDuplicateWarning.style.display = "none";
+      if (elements.chkConfirmOverwriteTbt) elements.chkConfirmOverwriteTbt.checked = false;
+      checkTbtCodeDuplicate();
       elements.modalAddTbt.classList.add("active");
     });
     elements.btnCloseAddTbt.addEventListener("click", () => {
@@ -539,6 +545,13 @@
       elements.modalAddTbt.classList.remove("active");
     });
     elements.btnSaveNewTbt.addEventListener("click", handleSaveNewTbt);
+
+    if (elements.newTbtCode) {
+      elements.newTbtCode.addEventListener("input", checkTbtCodeDuplicate);
+    }
+    if (elements.chkConfirmOverwriteTbt) {
+      elements.chkConfirmOverwriteTbt.addEventListener("change", checkTbtCodeDuplicate);
+    }
 
     // PDF Auto-Extraction Trigger & Change
     if (elements.btnTriggerPdfUpload && elements.tbtPdfUpload) {
@@ -1713,6 +1726,8 @@
 
       elements.newTbtBody.value = JSON.stringify(contentJson, null, 2);
 
+      checkTbtCodeDuplicate();
+
       const sectionCount = extracted.sections ? extracted.sections.length : 0;
       let bulletCount = 0;
       if (extracted.sections) {
@@ -1997,6 +2012,55 @@
   }
 
   // --------------------------------------------------------------------------
+  // Check Duplicate TBT Document Code
+  // --------------------------------------------------------------------------
+  function checkTbtCodeDuplicate() {
+    if (!elements.newTbtCode || !elements.tbtDuplicateWarning) return;
+    const code = elements.newTbtCode.value.trim().toUpperCase();
+
+    if (!code) {
+      elements.tbtDuplicateWarning.style.display = "none";
+      if (elements.chkConfirmOverwriteTbt) elements.chkConfirmOverwriteTbt.checked = false;
+      if (elements.btnSaveNewTbt) {
+        elements.btnSaveNewTbt.disabled = false;
+        elements.btnSaveNewTbt.textContent = "Create Toolbox Talk";
+      }
+      return;
+    }
+
+    const match = cachedTbts.find(
+      (t) => (t.doc_code || "").toUpperCase() === code || (t.id || "").toUpperCase() === code
+    );
+
+    if (match) {
+      elements.tbtDuplicateWarning.style.display = "block";
+      if (elements.tbtDuplicateInfo) {
+        elements.tbtDuplicateInfo.textContent = `A module with code "${match.doc_code || code}" already exists: "${match.title}" (Last Revision: ${match.last_revision || "N/A"}).`;
+      }
+
+      const isConfirmed = Boolean(elements.chkConfirmOverwriteTbt && elements.chkConfirmOverwriteTbt.checked);
+      if (isConfirmed) {
+        if (elements.btnSaveNewTbt) {
+          elements.btnSaveNewTbt.disabled = false;
+          elements.btnSaveNewTbt.textContent = "Update Existing Toolbox Talk";
+        }
+      } else {
+        if (elements.btnSaveNewTbt) {
+          elements.btnSaveNewTbt.disabled = true;
+          elements.btnSaveNewTbt.textContent = "Confirm Overwrite Required";
+        }
+      }
+    } else {
+      elements.tbtDuplicateWarning.style.display = "none";
+      if (elements.chkConfirmOverwriteTbt) elements.chkConfirmOverwriteTbt.checked = false;
+      if (elements.btnSaveNewTbt) {
+        elements.btnSaveNewTbt.disabled = false;
+        elements.btnSaveNewTbt.textContent = "Create Toolbox Talk";
+      }
+    }
+  }
+
+  // --------------------------------------------------------------------------
   // Create / Update TBT Handler
   // --------------------------------------------------------------------------
   async function handleSaveNewTbt() {
@@ -2077,6 +2141,8 @@
     if (!contentObj.why) contentObj.why = whyText;
     if (!contentObj.outline) contentObj.outline = outlineText;
 
+    const confirmOverwrite = Boolean(elements.chkConfirmOverwriteTbt && elements.chkConfirmOverwriteTbt.checked);
+
     try {
       const res = await fetch("/api/admin", {
         method: "POST",
@@ -2098,6 +2164,7 @@
           comprehension_question: question,
           comprehension_options_json: optionsArray,
           correct_option_index: isNaN(correctIdx) ? 0 : correctIdx,
+          confirm_overwrite: confirmOverwrite,
         }),
       });
       const json = await res.json();
@@ -2105,12 +2172,21 @@
         showToast(json.message || `Toolbox Talk ${docCode} saved successfully!`, "success");
         elements.modalAddTbt.classList.remove("active");
         elements.formAddTbt.reset();
+        if (elements.tbtDuplicateWarning) elements.tbtDuplicateWarning.style.display = "none";
+        if (elements.chkConfirmOverwriteTbt) elements.chkConfirmOverwriteTbt.checked = false;
+        if (elements.btnSaveNewTbt) {
+          elements.btnSaveNewTbt.disabled = false;
+          elements.btnSaveNewTbt.textContent = "Create Toolbox Talk";
+        }
         if (elements.pdfUploadStatus) {
           elements.pdfUploadStatus.style.display = "none";
         }
         await loadDynamicTbts();
         loadTbtsData();
       } else {
+        if (res.status === 409 || json.code_exists) {
+          checkTbtCodeDuplicate();
+        }
         showToast(json.error || "Failed to add TBT.", "error");
       }
     } catch (err) {

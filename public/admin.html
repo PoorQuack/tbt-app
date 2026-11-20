@@ -560,6 +560,18 @@
               <label for="new-tbt-title">Title *</label>
               <input type="text" id="new-tbt-title" class="form-control" placeholder="e.g. Safe Use of Step Ladder" required>
             </div>
+            <div class="form-group" style="grid-column: 1 / -1; margin-top: -0.25rem;">
+              <div id="tbt-duplicate-warning" style="display: none; padding: 0.75rem 1rem; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 6px; font-size: 0.85rem; color: #92400e;">
+                <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700; margin-bottom: 0.25rem;">
+                  <span>⚠️ Document Code Already Registered</span>
+                </div>
+                <div id="tbt-duplicate-info" style="margin-bottom: 0.6rem; font-size: 0.82rem; color: #78350f; line-height: 1.4;"></div>
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: #1e293b; background: #fff; padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid #cbd5e1;">
+                  <input type="checkbox" id="chk-confirm-overwrite-tbt" style="width: 16px; height: 16px; cursor: pointer;">
+                  <span>Confirm overwrite: update existing Toolbox Talk with this new revision</span>
+                </label>
+              </div>
+            </div>
             <div class="form-group">
               <label for="new-tbt-owner">Document Owner</label>
               <input type="text" id="new-tbt-owner" class="form-control" value="Operations Director">

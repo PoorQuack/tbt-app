@@ -830,6 +830,7 @@ export async function onRequestPost(context) {
         comprehension_question,
         comprehension_options_json,
         correct_option_index = 0,
+        confirm_overwrite = false,
       } = body;
 
       if (!doc_code || !title || !comprehension_question) {
@@ -851,13 +852,29 @@ export async function onRequestPost(context) {
 
       const cleanCode = doc_code.trim();
 
-      // In-place upsert if doc_code exists
+      // Check if doc_code already exists
       const existingTbt = await db
-        .prepare("SELECT id, doc_code FROM tbts WHERE doc_code = ? OR id = ?")
+        .prepare("SELECT id, doc_code, title, last_revision FROM tbts WHERE doc_code = ? OR id = ?")
         .bind(cleanCode, cleanCode)
         .first();
 
       if (existingTbt) {
+        if (confirm_overwrite !== true && confirm_overwrite !== "true") {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `A Toolbox Talk with code '${cleanCode}' already exists. Tick 'Confirm overwrite' to update it as a new revision, or use a unique Document Code.`,
+              code_exists: true,
+              existing: {
+                doc_code: existingTbt.doc_code,
+                title: existingTbt.title,
+                last_revision: existingTbt.last_revision,
+              },
+            }),
+            { status: 409, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
         await db
           .prepare(
             `UPDATE tbts SET
