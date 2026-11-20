@@ -6,6 +6,7 @@
   <title>TBT Supervisor Portal & Official A4 Register | Three Eagles Ltd</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23941b1b'/><text x='50' y='65' font-size='50' font-weight='bold' fill='white' text-anchor='middle'>AIM</text></svg>">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 
@@ -404,50 +405,110 @@
 
   <!-- Modal: Add New TBT -->
   <div id="modal-add-tbt" class="modal-overlay">
-    <div class="modal-card" style="max-width: 650px;">
+    <div class="modal-card" style="max-width: 780px;">
       <div class="modal-header">
         <h3>Add New Toolbox Talk Module</h3>
         <button type="button" id="btn-close-add-tbt" class="modal-close-btn">&times;</button>
       </div>
-      <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+      <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+
+        <!-- PDF Auto-Extraction Box (Client-Side PDF.js) -->
+        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 1.5px dashed var(--success); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; text-align: center;">
+          <div style="font-weight: 700; color: #166534; font-size: 0.95rem; margin-bottom: 0.35rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+            <span>Auto-Fill from Company TBT PDF (AIM Template)</span>
+          </div>
+          <p style="font-size: 0.8rem; color: #15803d; margin-bottom: 0.75rem;">
+            Upload any standard AIM / Three Eagles TBT PDF to automatically parse document code, revisions, structured sections, bullets, and comprehension question.
+          </p>
+          <input type="file" id="tbt-pdf-upload" accept="application/pdf" style="display: none;">
+          <button type="button" id="btn-trigger-pdf-upload" class="sig-btn" style="background: #fff; font-weight: 600; border-color: #86efac; color: #15803d; padding: 0.5rem 1rem;">
+            📁 Choose TBT PDF File...
+          </button>
+          <div id="pdf-upload-status" style="margin-top: 0.65rem; font-size: 0.85rem; font-weight: 600; display: none;"></div>
+        </div>
+
         <form id="form-add-tbt">
           <div class="form-grid" style="margin-bottom: 0.85rem;">
             <div class="form-group">
               <label for="new-tbt-code">Document Code *</label>
-              <input type="text" id="new-tbt-code" class="form-control" placeholder="e.g. AVC050" required>
+              <input type="text" id="new-tbt-code" class="form-control" placeholder="e.g. AVC032" required>
             </div>
             <div class="form-group">
               <label for="new-tbt-title">Title *</label>
-              <input type="text" id="new-tbt-title" class="form-control" placeholder="e.g. Working in Confined Spaces" required>
+              <input type="text" id="new-tbt-title" class="form-control" placeholder="e.g. Safe Use of Step Ladder" required>
+            </div>
+            <div class="form-group">
+              <label for="new-tbt-owner">Document Owner</label>
+              <input type="text" id="new-tbt-owner" class="form-control" value="Operations Director">
             </div>
             <div class="form-group">
               <label for="new-tbt-category">Category</label>
-              <input type="text" id="new-tbt-category" class="form-control" value="High Risk Safety">
+              <input type="text" id="new-tbt-category" class="form-control" value="Working at Height">
             </div>
             <div class="form-group">
-              <label for="new-tbt-week">Initial Briefing Week</label>
+              <label for="new-tbt-lr">Last Revision (LR)</label>
+              <input type="text" id="new-tbt-lr" class="form-control" placeholder="DD/MM/YYYY" value="05/01/2026">
+            </div>
+            <div class="form-group">
+              <label for="new-tbt-nr">Next Revision (NR)</label>
+              <input type="text" id="new-tbt-nr" class="form-control" placeholder="DD/MM/YYYY" value="04/01/2028">
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <label for="new-tbt-week">Initial Briefing Week Label</label>
               <input type="text" id="new-tbt-week" class="form-control" value="Week 1">
             </div>
           </div>
 
+          <!-- Official TBT Summary Block -->
+          <div style="background-color: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+            <div style="font-weight: 700; font-size: 0.85rem; color: var(--secondary); margin-bottom: 0.75rem;">Official TBT Summary Block</div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="new-tbt-prepare">Prepare</label>
+                <input type="text" id="new-tbt-prepare" class="form-control" placeholder="Quiet location? No distractions? Talk aids ready?">
+              </div>
+              <div class="form-group">
+                <label for="new-tbt-reason">Reason</label>
+                <input type="text" id="new-tbt-reason" class="form-control" placeholder="To ensure operatives understand safe practice">
+              </div>
+              <div class="form-group">
+                <label for="new-tbt-why">Why</label>
+                <input type="text" id="new-tbt-why" class="form-control" placeholder="To prevent injuries from falls">
+              </div>
+              <div class="form-group">
+                <label for="new-tbt-outline">Outline</label>
+                <input type="text" id="new-tbt-outline" class="form-control" placeholder="This TBT covers safe use of equipment">
+              </div>
+            </div>
+          </div>
+
+          <!-- Comprehension Check -->
           <div class="form-group" style="margin-bottom: 0.85rem;">
             <label for="new-tbt-question">Comprehension Check Question *</label>
-            <input type="text" id="new-tbt-question" class="form-control" placeholder="e.g. What is the minimum team size for confined space entry?" required>
+            <input type="text" id="new-tbt-question" class="form-control" placeholder="e.g. When should you carry out a Pre-use check?" required>
           </div>
 
           <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label for="new-tbt-options">Answer Options (Comma-separated or JSON) *</label>
-            <input type="text" id="new-tbt-options" class="form-control" value="Solo work permitted, Minimum 2 operatives with top-man, Only 1 worker needed" required>
+            <label for="new-tbt-options">Answer Options (4 choices, one per line or comma-separated) *</label>
+            <textarea id="new-tbt-options" class="form-control textarea-control" rows="3" placeholder="Option 1&#10;Option 2&#10;Option 3&#10;Option 4" required></textarea>
+            <small style="color: var(--text-muted); margin-top: 0.25rem;">Four options are pre-populated from the PDF text. Option 0 (first) is the correct answer by default.</small>
           </div>
 
           <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label for="new-tbt-correct-idx">Correct Option (0-based Index: 0 = first, 1 = second, etc.) *</label>
-            <input type="number" id="new-tbt-correct-idx" class="form-control" min="0" max="5" value="1" required>
+            <label for="new-tbt-correct-idx">Correct Option Index (0 = 1st option, 1 = 2nd option, etc.) *</label>
+            <input type="number" id="new-tbt-correct-idx" class="form-control" min="0" max="3" value="0" required>
           </div>
 
+          <!-- Content JSON & Sections Preview -->
           <div class="form-group">
-            <label for="new-tbt-body">Key Safety Instructions / Content Summary *</label>
-            <textarea id="new-tbt-body" class="form-control textarea-control" rows="4" placeholder="Enter key safety points, hazards, and emergency procedures..." required></textarea>
+            <label for="new-tbt-body">Structured Content (JSON with sections & bullet points) *</label>
+            <textarea id="new-tbt-body" class="form-control textarea-control" rows="7" placeholder='{"sections": [{"title": "1. Introduction", "body": "...", "points": ["..."]}]}' required style="font-family: monospace; font-size: 0.8rem;"></textarea>
           </div>
         </form>
       </div>

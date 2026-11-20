@@ -5,6 +5,12 @@
 (function () {
   "use strict";
 
+  // Configure Mozilla PDF.js Worker for zero-API client-side parsing
+  if (typeof pdfjsLib !== "undefined") {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+
   let adminPin = sessionStorage.getItem("tbt_admin_pin") || "";
   let currentTab = "tab-register";
   let cachedRecords = [];
@@ -89,14 +95,24 @@
     btnSaveWeek: document.getElementById("btn-save-week"),
 
     modalAddTbt: document.getElementById("modal-add-tbt"),
+    tbtPdfUpload: document.getElementById("tbt-pdf-upload"),
+    btnTriggerPdfUpload: document.getElementById("btn-trigger-pdf-upload"),
+    pdfUploadStatus: document.getElementById("pdf-upload-status"),
     btnCloseAddTbt: document.getElementById("btn-close-add-tbt"),
     btnCancelAddTbt: document.getElementById("btn-cancel-add-tbt"),
     btnSaveNewTbt: document.getElementById("btn-save-new-tbt"),
     formAddTbt: document.getElementById("form-add-tbt"),
     newTbtCode: document.getElementById("new-tbt-code"),
     newTbtTitle: document.getElementById("new-tbt-title"),
+    newTbtOwner: document.getElementById("new-tbt-owner"),
     newTbtCategory: document.getElementById("new-tbt-category"),
+    newTbtLr: document.getElementById("new-tbt-lr"),
+    newTbtNr: document.getElementById("new-tbt-nr"),
     newTbtWeek: document.getElementById("new-tbt-week"),
+    newTbtPrepare: document.getElementById("new-tbt-prepare"),
+    newTbtReason: document.getElementById("new-tbt-reason"),
+    newTbtWhy: document.getElementById("new-tbt-why"),
+    newTbtOutline: document.getElementById("new-tbt-outline"),
     newTbtQuestion: document.getElementById("new-tbt-question"),
     newTbtOptions: document.getElementById("new-tbt-options"),
     newTbtCorrectIdx: document.getElementById("new-tbt-correct-idx"),
@@ -346,6 +362,14 @@
       elements.modalAddTbt.classList.remove("active");
     });
     elements.btnSaveNewTbt.addEventListener("click", handleSaveNewTbt);
+
+    // PDF Auto-Extraction Trigger & Change
+    if (elements.btnTriggerPdfUpload && elements.tbtPdfUpload) {
+      elements.btnTriggerPdfUpload.addEventListener("click", () => {
+        elements.tbtPdfUpload.click();
+      });
+      elements.tbtPdfUpload.addEventListener("change", handlePdfFileSelected);
+    }
 
     // Audit Detail Modal
     elements.btnCloseAuditModal.addEventListener("click", () => {
@@ -1076,18 +1100,403 @@
     }
   }
 
+  // --------------------------------------------------------------------------
+  // Mozilla PDF.js AIM TBT PDF Parser (100% Client-Side, Zero External APIs)
+  // --------------------------------------------------------------------------
+  async function handlePdfFileSelected(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      showToast("Please select a valid PDF file.", "error");
+      return;
+    }
+
+    const statusEl = elements.pdfUploadStatus;
+    if (statusEl) {
+      statusEl.style.display = "block";
+      statusEl.style.color = "var(--primary)";
+      statusEl.textContent = `Extracting text and structure from ${file.name}...`;
+    }
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const extracted = await parseAimTbtPdf(arrayBuffer);
+
+      // Populate Form Fields
+      if (extracted.doc_code) elements.newTbtCode.value = extracted.doc_code;
+      if (extracted.title) elements.newTbtTitle.value = extracted.title;
+      if (extracted.doc_owner && elements.newTbtOwner) elements.newTbtOwner.value = extracted.doc_owner;
+      if (extracted.last_revision && elements.newTbtLr) elements.newTbtLr.value = extracted.last_revision;
+      if (extracted.next_revision && elements.newTbtNr) elements.newTbtNr.value = extracted.next_revision;
+      if (extracted.category) elements.newTbtCategory.value = extracted.category;
+      if (extracted.prepare && elements.newTbtPrepare) elements.newTbtPrepare.value = extracted.prepare;
+      if (extracted.reason && elements.newTbtReason) elements.newTbtReason.value = extracted.reason;
+      if (extracted.why && elements.newTbtWhy) elements.newTbtWhy.value = extracted.why;
+      if (extracted.outline && elements.newTbtOutline) elements.newTbtOutline.value = extracted.outline;
+      if (extracted.question) elements.newTbtQuestion.value = extracted.question;
+      if (extracted.options && extracted.options.length > 0) {
+        elements.newTbtOptions.value = extracted.options.join("\n");
+      }
+      elements.newTbtCorrectIdx.value = "0";
+
+      // Build and preview structured JSON content
+      const contentJsonObj = {
+        prepare: extracted.prepare || "",
+        reason: extracted.reason || "",
+        why: extracted.why || "",
+        outline: extracted.outline || "",
+        sections: extracted.sections || [],
+      };
+      elements.newTbtBody.value = JSON.stringify(contentJsonObj, null, 2);
+
+      let totalPoints = 0;
+      extracted.sections.forEach((s) => {
+        totalPoints += (s.points || []).length;
+        if (s.subsections) {
+          s.subsections.forEach((sub) => {
+            totalPoints += (sub.points || []).length;
+          });
+        }
+      });
+
+      if (statusEl) {
+        statusEl.style.color = "var(--success)";
+        statusEl.textContent = `✓ Extracted ${extracted.doc_code || "TBT"}: ${extracted.sections.length} sections, ${totalPoints} bullet points`;
+      }
+      showToast(`Successfully extracted ${extracted.title || file.name}!`, "success");
+    } catch (err) {
+      console.error("PDF Parsing Error:", err);
+      if (statusEl) {
+        statusEl.style.color = "var(--danger)";
+        statusEl.textContent = `⚠️ Error parsing PDF: ${err.message || "Unknown error"}`;
+      }
+      showToast("Failed to parse TBT PDF.", "error");
+    }
+  }
+
+  async function parseAimTbtPdf(arrayBuffer) {
+    if (typeof pdfjsLib === "undefined") {
+      throw new Error("Mozilla PDF.js library is not loaded.");
+    }
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    const numPages = pdf.numPages;
+
+    const allLines = [];
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const pageLines = extractPageLines(textContent);
+      for (const line of pageLines) {
+        const trimmed = line.trim();
+        if (trimmed) allLines.push(trimmed);
+      }
+    }
+
+    return parseLinesToTbt(allLines);
+  }
+
+  function extractPageLines(textContent) {
+    const items = (textContent.items || []).filter(
+      (it) => it.str && it.str.trim().length > 0
+    );
+    if (items.length === 0) return [];
+
+    // Sort items top-to-bottom (Y descending), left-to-right (X ascending)
+    items.sort((a, b) => {
+      const yDiff = b.transform[5] - a.transform[5];
+      if (Math.abs(yDiff) > 3) {
+        return yDiff;
+      }
+      return a.transform[4] - b.transform[4];
+    });
+
+    const lines = [];
+    let currentLine = [];
+    let currentY = null;
+
+    for (const item of items) {
+      const y = item.transform[5];
+      if (currentY === null || Math.abs(currentY - y) > 3) {
+        if (currentLine.length > 0) {
+          lines.push(currentLine.map((it) => it.str.trim()).filter(Boolean).join(" "));
+        }
+        currentLine = [item];
+        currentY = y;
+      } else {
+        currentLine.push(item);
+      }
+    }
+    if (currentLine.length > 0) {
+      lines.push(currentLine.map((it) => it.str.trim()).filter(Boolean).join(" "));
+    }
+
+    return lines;
+  }
+
+  function parseLinesToTbt(allLines) {
+    let docOwner = "Operations Director";
+    let docCode = "";
+    let lastRev = "05/01/2026";
+    let nextRev = "04/01/2028";
+    let title = "";
+
+    // 1. Metadata from Document Owner footer/header lines
+    for (const l of allLines) {
+      const fullMatch = l.match(/Document\s+Owner:\s*([^\n\r]+?)\s*Document\s+Number:\s*([A-Za-z0-9_-]+)\s*LR:\s*(\d{2}\/\d{2}\/\d{4})\s*NR:\s*(\d{2}\/\d{2}\/\d{4})/i);
+      if (fullMatch) {
+        docOwner = fullMatch[1].trim();
+        docCode = fullMatch[2].trim().toUpperCase();
+        lastRev = fullMatch[3].trim();
+        nextRev = fullMatch[4].trim();
+        break;
+      }
+      if (!docCode) {
+        const codeMatch = l.match(/Document\s+Number:\s*([A-Za-z0-9_-]+)/i) || l.match(/\b(AVC\d{3}[A-Z]?)\b/i);
+        if (codeMatch) docCode = codeMatch[1].trim().toUpperCase();
+      }
+      if (!lastRev) {
+        const lrMatch = l.match(/LR:\s*(\d{2}\/\d{2}\/\d{4})/i);
+        if (lrMatch) lastRev = lrMatch[1].trim();
+      }
+      if (!nextRev) {
+        const nrMatch = l.match(/NR:\s*(\d{2}\/\d{2}\/\d{4})/i);
+        if (nrMatch) nextRev = nrMatch[1].trim();
+      }
+      if (l.includes("Document Owner:")) {
+        const ownerMatch = l.match(/Document\s+Owner:\s*([^D\n\r]+?)(?=\s*Document\s+Number:|$)/i);
+        if (ownerMatch && ownerMatch[1].trim()) docOwner = ownerMatch[1].trim();
+      }
+    }
+
+    // 2. Extract Document Title from top lines
+    for (let i = 0; i < Math.min(allLines.length, 6); i++) {
+      const l = allLines[i];
+      if (l.toLowerCase().includes("toolbox talk") && allLines[i + 1] && !allLines[i + 1].includes("Document Owner:")) {
+        title = allLines[i + 1];
+        break;
+      }
+      if (docCode && l.toUpperCase().includes(docCode)) {
+        title = l;
+        break;
+      }
+    }
+    if (!title && allLines.length > 0) {
+      title = allLines[0];
+    }
+    if (docCode) {
+      title = title.replace(new RegExp(`\\s*${docCode}\\s*$`, "i"), "").trim();
+    }
+    title = title.replace(/^Toolbox\s+Talk\s*/i, "").replace(/AIM$/i, "").trim();
+
+    // 3. Extract Summary block (Prepare, Reason, Why, Outline)
+    let prepare = "Quiet location? No distractions? Talk aids ready?";
+    let reason = `To ensure operatives understand safe practice regarding ${title}.`;
+    let why = "To prevent workplace injuries and uphold safety standards.";
+    let outline = `This TBT covers safe use and safety procedures for ${title}.`;
+
+    for (const l of allLines) {
+      if (/^Prepare\s*:/i.test(l)) {
+        prepare = l.replace(/^Prepare\s*:\s*/i, "").trim();
+      } else if (/^Reason\s*:/i.test(l)) {
+        reason = l.replace(/^Reason\s*:\s*/i, "").trim();
+      } else if (/^Why\s*:/i.test(l)) {
+        why = l.replace(/^Why\s*:\s*/i, "").trim();
+      } else if (/^Outline\s*:/i.test(l)) {
+        outline = l.replace(/^Outline\s*:\s*/i, "").trim();
+      }
+    }
+
+    // 4. Extract Comprehension Question
+    let question = "";
+    for (let i = 0; i < allLines.length; i++) {
+      const l = allLines[i];
+      if (/^Q\s*:\s*/i.test(l)) {
+        question = l.replace(/^Q\s*:\s*/i, "").trim();
+        break;
+      }
+      if (/Questions\s+for\s+you/i.test(l) && i + 1 < allLines.length) {
+        question = allLines[i + 1].replace(/^Q\s*:\s*/i, "").trim();
+        break;
+      }
+    }
+    if (!question) {
+      question = `What is a key safety requirement when undertaking ${title}?`;
+    }
+
+    // 5. Extract Sections and Bullets
+    const sections = [];
+    let currentSec = null;
+    const stopPhrases = [
+      "do you have any questions for me",
+      "questions for you",
+      "date name signature company",
+      "date\tname\tsignature",
+      "date name signature",
+    ];
+
+    for (const l of allLines) {
+      const lLower = l.toLowerCase();
+      if (stopPhrases.some((phrase) => lLower.includes(phrase))) {
+        break;
+      }
+
+      // Skip repeated header / footer / metadata lines
+      if (l.includes("Document Owner:") || l.includes("Document Number:")) continue;
+      if (lLower === "toolbox talk" || lLower === "aim" || lLower.includes("for zero accidents")) continue;
+      if (docCode && l.toUpperCase().endsWith(docCode) && l.length < title.length + docCode.length + 8) continue;
+      if (/^(Prepare|Reason|Why|Outline)\s*:/i.test(l)) continue;
+      if (l === "Notes" || l === "Toolbox Talk") continue;
+
+      // Handle Sub-headings like Management / Employees
+      if (l === "Management" || l === "Employees") {
+        if (currentSec) {
+          if (!currentSec.subsections) currentSec.subsections = [];
+          currentSec.subsections.push({ heading: `${l} Responsibilities`, points: [] });
+        }
+        continue;
+      }
+
+      // Check if Heading
+      const isNumbered = /^\d+\.\s+[A-Za-z]/.test(l);
+      const isQuestionHeading = l.endsWith("?") && l.length < 80;
+      const isColonHeading = l.endsWith(":") && l.length < 75 && !l.startsWith("•") && !/^\([a-z0-9]+\)/i.test(l);
+      const isHeading = isNumbered || isQuestionHeading || isColonHeading;
+
+      if (isHeading) {
+        if (currentSec) {
+          sections.push(currentSec);
+        }
+        const cleanTitle = l.replace(/:$/, "").trim();
+        currentSec = {
+          title: cleanTitle,
+          body: "",
+          points: [],
+        };
+        continue;
+      }
+
+      // Check if Bullet / Point
+      const isBullet = l.startsWith("•") || l.startsWith("- ") || l.startsWith("* ") || /^\([a-z0-9]+\)\s*/i.test(l);
+      if (isBullet) {
+        const cleanPt = l.replace(/^[•\-\*]\s*/, "").trim();
+        if (!currentSec) {
+          currentSec = { title: "Safety Guidelines", body: "", points: [] };
+        }
+        if (currentSec.subsections && currentSec.subsections.length > 0) {
+          currentSec.subsections[currentSec.subsections.length - 1].points.push(cleanPt);
+        } else {
+          currentSec.points.push(cleanPt);
+        }
+        continue;
+      }
+
+      // Narrative text
+      if (currentSec) {
+        if (!currentSec.body) {
+          currentSec.body = l;
+        } else {
+          currentSec.body += " " + l;
+        }
+      }
+    }
+    if (currentSec) {
+      sections.push(currentSec);
+    }
+
+    // 6. Generate 4 Comprehension Options with Option 0 matching best keyword from points
+    const qWords = question
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 3 && !["when", "what", "where", "which", "should", "about", "your", "carry", "this", "from", "that"].includes(w));
+
+    let allExtractedPoints = [];
+    sections.forEach((s) => {
+      if (s.points) allExtractedPoints = allExtractedPoints.concat(s.points);
+      if (s.subsections) {
+        s.subsections.forEach((sub) => {
+          if (sub.points) allExtractedPoints = allExtractedPoints.concat(sub.points);
+        });
+      }
+    });
+
+    let bestPoint = "";
+    let maxMatches = -1;
+    for (const pt of allExtractedPoints) {
+      const ptLower = pt.toLowerCase();
+      let matchCount = 0;
+      for (const w of qWords) {
+        if (ptLower.includes(w)) matchCount++;
+      }
+      if (matchCount > maxMatches && pt.length > 20 && pt.length < 150) {
+        maxMatches = matchCount;
+        bestPoint = pt;
+      }
+    }
+
+    if (!bestPoint) {
+      bestPoint = allExtractedPoints[0] || `Comply fully with all instructions specified in ${docCode}.`;
+    }
+    bestPoint = bestPoint.charAt(0).toUpperCase() + bestPoint.slice(1);
+
+    const options = [
+      bestPoint,
+      "Only after an accident or near-miss occurs on site",
+      "Once a month by the main contractor safety officer",
+      "Only if the equipment appears visibly buckled or broken",
+    ];
+
+    // Infer category
+    let category = "Health & Safety";
+    const tLower = title.toLowerCase();
+    if (tLower.includes("ladder") || tLower.includes("height") || tLower.includes("scaffold") || tLower.includes("fall")) {
+      category = "Working at Height";
+    } else if (tLower.includes("dust") || tLower.includes("silica") || tLower.includes("asbestos") || tLower.includes("noise")) {
+      category = "Occupational Health";
+    } else if (tLower.includes("ppe") || tLower.includes("protective equipment")) {
+      category = "General Safety";
+    } else if (tLower.includes("waste") || tLower.includes("housekeeping") || tLower.includes("fire")) {
+      category = "Site Logistics";
+    }
+
+    return {
+      doc_code: docCode,
+      title: title,
+      doc_owner: docOwner,
+      last_revision: lastRev,
+      next_revision: nextRev,
+      category: category,
+      prepare: prepare,
+      reason: reason,
+      why: why,
+      outline: outline,
+      question: question,
+      options: options,
+      sections: sections,
+    };
+  }
+
   async function handleSaveNewTbt() {
     const docCode = elements.newTbtCode.value.trim().toUpperCase();
     const title = elements.newTbtTitle.value.trim();
+    const docOwner = (elements.newTbtOwner?.value || "").trim() || "Operations Director";
+    const lastRev = (elements.newTbtLr?.value || "").trim() || "05/01/2026";
+    const nextRev = (elements.newTbtNr?.value || "").trim() || "04/01/2028";
     const category = elements.newTbtCategory.value.trim() || "Health & Safety";
     const week = elements.newTbtWeek.value.trim() || "Week 1";
+    const prepareText = (elements.newTbtPrepare?.value || "").trim() || "Quiet location? No distractions? Talk aids ready?";
+    const reasonText = (elements.newTbtReason?.value || "").trim() || `To ensure safe working practice regarding ${title}.`;
+    const whyText = (elements.newTbtWhy?.value || "").trim() || "To prevent workplace injuries.";
+    const outlineText = (elements.newTbtOutline?.value || "").trim() || `Safe work instructions for ${title}.`;
     const question = elements.newTbtQuestion.value.trim();
     const optionsRaw = elements.newTbtOptions.value.trim();
     const correctIdx = parseInt(elements.newTbtCorrectIdx.value, 10);
-    const bodyText = elements.newTbtBody.value.trim();
+    const bodyRaw = elements.newTbtBody.value.trim();
 
-    if (!docCode || !title || !question || !optionsRaw || !bodyText) {
-      showToast("Please fill in all required fields.", "error");
+    if (!docCode || !title || !question || !optionsRaw || !bodyRaw) {
+      showToast("Please fill in all required fields (Doc Code, Title, Question, Options, and Content).", "error");
       return;
     }
 
@@ -1095,25 +1504,57 @@
     try {
       if (optionsRaw.startsWith("[")) {
         optionsArray = JSON.parse(optionsRaw);
+      } else if (optionsRaw.includes("\n")) {
+        optionsArray = optionsRaw.split("\n").map((s) => s.trim()).filter(Boolean);
       } else {
-        optionsArray = optionsRaw.split(",").map((s) => s.trim());
+        optionsArray = optionsRaw.split(",").map((s) => s.trim()).filter(Boolean);
       }
     } catch (e) {
-      optionsArray = optionsRaw.split(",").map((s) => s.trim());
+      optionsArray = optionsRaw.split("\n").map((s) => s.trim()).filter(Boolean);
     }
 
-    const contentObj = {
-      prepare: "Quiet location? No distractions? Talk aids ready?",
-      reason: `To ensure understanding of site hazards regarding ${title}.`,
-      why: "To prevent workplace injuries and uphold safety standards.",
-      outline: `This briefing covers ${title}.`,
-      sections: [
-        {
-          title: "1. Overview & Safety Instructions",
-          body: bodyText,
-        },
-      ],
-    };
+    if (optionsArray.length < 2) {
+      showToast("Please provide at least 2 answer options for the comprehension check.", "error");
+      return;
+    }
+
+    let contentObj;
+    try {
+      if (bodyRaw.startsWith("{")) {
+        contentObj = JSON.parse(bodyRaw);
+      } else {
+        contentObj = {
+          prepare: prepareText,
+          reason: reasonText,
+          why: whyText,
+          outline: outlineText,
+          sections: [
+            {
+              title: "1. Key Instructions",
+              body: bodyRaw,
+            },
+          ],
+        };
+      }
+    } catch (err) {
+      contentObj = {
+        prepare: prepareText,
+        reason: reasonText,
+        why: whyText,
+        outline: outlineText,
+        sections: [
+          {
+            title: "1. Key Instructions",
+            body: bodyRaw,
+          },
+        ],
+      };
+    }
+
+    if (!contentObj.prepare) contentObj.prepare = prepareText;
+    if (!contentObj.reason) contentObj.reason = reasonText;
+    if (!contentObj.why) contentObj.why = whyText;
+    if (!contentObj.outline) contentObj.outline = outlineText;
 
     try {
       const res = await fetch("/api/admin", {
@@ -1123,12 +1564,15 @@
           action: "add_tbt",
           doc_code: docCode,
           title: title,
+          doc_owner: docOwner,
+          last_revision: lastRev,
+          next_revision: nextRev,
           category: category,
           briefing_week: week,
-          prepare_text: contentObj.prepare,
-          reason_text: contentObj.reason,
-          why_text: contentObj.why,
-          outline_text: contentObj.outline,
+          prepare_text: prepareText,
+          reason_text: reasonText,
+          why_text: whyText,
+          outline_text: outlineText,
           content_json: contentObj,
           comprehension_question: question,
           comprehension_options_json: optionsArray,
@@ -1137,9 +1581,12 @@
       });
       const json = await res.json();
       if (json.success) {
-        showToast(`Toolbox Talk ${docCode} added!`, "success");
+        showToast(`Toolbox Talk ${docCode} created successfully!`, "success");
         elements.modalAddTbt.classList.remove("active");
         elements.formAddTbt.reset();
+        if (elements.pdfUploadStatus) {
+          elements.pdfUploadStatus.style.display = "none";
+        }
         await loadDynamicTbts();
         loadTbtsData();
       } else {
