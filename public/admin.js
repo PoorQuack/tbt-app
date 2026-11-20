@@ -1942,7 +1942,7 @@
       doc_owner: "Operations Director",
       last_revision: "",
       next_revision: "",
-      category: "Working at Height",
+      category: "General Safety",
       prepare: "",
       reason: "",
       why: "",
@@ -1953,192 +1953,223 @@
     };
 
     // 1. Search Header / Footer for Metadata
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-
-      // Match: Document Owner: Operations Director Document Number: AVC032 LR: 05/01/2026 NR: 04/01/2028
+    for (const line of lines) {
       const ownerMatch = line.match(/Document\s+Owner:\s*([^D]+?)\s*Document\s+Number:\s*([A-Za-z0-9_-]+)/i);
       if (ownerMatch) {
         data.doc_owner = ownerMatch[1].trim();
         data.doc_code = ownerMatch[2].trim();
       }
-
-      const revMatch = line.match(/LR:\s*([0-9/.-]+)\s*NR:\s*([0-9/.-]+)/i);
+      const docNumMatch = line.match(/Document\s+Number:\s*([A-Za-z0-9_-]+)/i);
+      if (docNumMatch && !data.doc_code) {
+        data.doc_code = docNumMatch[1].trim();
+      }
+      const revMatch = line.match(/LR\s*:\s*([0-9/.-]+)\s*NR\s*:\s*([0-9/.-]+)/i);
       if (revMatch) {
         data.last_revision = revMatch[1].trim();
         data.next_revision = revMatch[2].trim();
       }
-
-      // Title line matching
-      if (!data.title && (line.includes("Toolbox Talk") || line.includes("AVC"))) {
-        const titleCandidate = line
-          .replace(/Toolbox\s+Talk/gi, "")
-          .replace(/AVC\d+/gi, "")
-          .replace(/Page\s+\d+\s+of\s+\d+/gi, "")
-          .trim();
-        if (titleCandidate.length > 4) {
-          data.title = titleCandidate;
-        }
-      }
-
-      // Category inference
-      const lower = line.toLowerCase();
-      if (lower.includes("ladder") || lower.includes("height") || lower.includes("scaffold")) {
-        data.category = "Working at Height";
-      } else if (lower.includes("dust") || lower.includes("health") || lower.includes("asbestos")) {
-        data.category = "Occupational Health";
-      } else if (lower.includes("waste") || lower.includes("housekeeping")) {
-        data.category = "Site Logistics";
-      } else if (lower.includes("ppe") || lower.includes("protective")) {
-        data.category = "General Safety";
-      }
     }
 
-    if (!data.doc_code) {
-      for (const line of lines) {
-        const m = line.match(/\b(AVC\d+)\b/);
-        if (m) {
-          data.doc_code = m[1];
+    // Fallback for doc_code (find longest AVC code match)
+    if (!data.doc_code || data.doc_code.length <= 5) {
+      let bestCode = data.doc_code || "";
+      for (const l of lines) {
+        const matches = l.matchAll(/\b(AVC\d{2,4})\b/gi);
+        for (const m of matches) {
+          if (m[1].length > bestCode.length) {
+            bestCode = m[1].toUpperCase();
+          }
+        }
+      }
+      if (bestCode) data.doc_code = bestCode;
+    }
+
+    // Find Title from top lines
+    for (let i = 0; i < Math.min(10, lines.length); i++) {
+      const l = lines[i];
+      if (data.doc_code && l.includes(data.doc_code)) {
+        const cleaned = l.replace(new RegExp(data.doc_code, "gi"), "").replace(/Toolbox\s+Talk/gi, "").trim();
+        if (cleaned.length > 3) {
+          data.title = cleaned;
           break;
         }
       }
     }
-
     if (!data.title) {
-      for (let i = 0; i < Math.min(10, lines.length); i++) {
+      for (let i = 0; i < Math.min(6, lines.length); i++) {
         const l = lines[i];
-        if (l.length > 5 && !l.includes("AIM") && !l.includes("Document") && !l.includes("Zero Accidents")) {
-          data.title = l.replace(/\bAVC\d+\b/g, "").trim();
+        if (l.length > 4 && !l.includes("Prepare") && !l.includes("Document") && !l.includes("AVC")) {
+          data.title = l.trim();
           break;
         }
       }
+    }
+    if (data.title) {
+      data.title = data.title.replace(/\s+AVC\d+.*$/i, "").replace(/[:\-–]+$/, "").trim();
+    }
+
+    // Category inference
+    const fullText = lines.join(" ").toLowerCase();
+    if (fullText.includes("winter") || fullText.includes("cold weather") || fullText.includes("hypothermia") || fullText.includes("frostbite")) {
+      data.category = "Environmental & Seasonal Safety";
+    } else if (fullText.includes("dust") || fullText.includes("silica") || fullText.includes("asbestos") || fullText.includes("respiratory")) {
+      data.category = "Occupational Health";
+    } else if (fullText.includes("ladder") || fullText.includes("stepladder") || fullText.includes("scaffold") || fullText.includes("working at height")) {
+      data.category = "Working at Height";
+    } else if (fullText.includes("housekeeping") || fullText.includes("waste") || fullText.includes("slips") || fullText.includes("trips")) {
+      data.category = "Site Logistics";
+    } else if (fullText.includes("ppe") || fullText.includes("protective equipment")) {
+      data.category = "General Safety";
+    } else if (fullText.includes("pollution") || fullText.includes("spill") || fullText.includes("environmental")) {
+      data.category = "Environmental Safety";
     }
 
     // 2. Summary Block (Prepare, Reason, Why, Outline)
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (/^Prepare:/i.test(line)) {
-        data.prepare = line.replace(/^Prepare:\s*/i, "").trim();
-      } else if (/^Reason:/i.test(line)) {
-        data.reason = line.replace(/^Reason:\s*/i, "").trim();
-      } else if (/^Why:/i.test(line)) {
-        data.why = line.replace(/^Why:\s*/i, "").trim();
-      } else if (/^Outline:/i.test(line)) {
-        data.outline = line.replace(/^Outline:\s*/i, "").trim();
+      if (/^Prepare\s*:/i.test(line)) {
+        data.prepare = line.replace(/^Prepare\s*:\s*/i, "").trim();
+      } else if (/^Reason\s*:/i.test(line)) {
+        data.reason = line.replace(/^Reason\s*:\s*/i, "").trim();
+      } else if (/^Why\s*:/i.test(line)) {
+        data.why = line.replace(/^Why\s*:\s*/i, "").trim();
+      } else if (/^Outline\s*:/i.test(line)) {
+        data.outline = line.replace(/^Outline\s*:\s*/i, "").trim();
       }
     }
 
-    // 3. Structured Sections & Points
-    const sections = [];
-    let currentSection = null;
-    let inBody = false;
+    if (!data.prepare) data.prepare = "Quiet location? No distractions? Talk aids ready?";
+    if (!data.reason) data.reason = `To ensure operatives understand hazards and work safely regarding ${data.title || "this activity"}.`;
+    if (!data.why) data.why = "To prevent workplace injuries and uphold statutory safety standards.";
+    if (!data.outline) data.outline = `This briefing covers safe working procedures and controls for ${data.title || "site operations"}.`;
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-
-      // Stop parsing body when reaching Question or Signature section
-      if (
-        line.includes("Questions for you") ||
-        line.includes("Do you have any questions for me?") ||
-        line.includes("Date Name Signature Company")
-      ) {
-        inBody = false;
+    // 3. Question extraction (search backwards for final question block)
+    let foundQuestion = "";
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const l = lines[i];
+      if (/^Q:\s*/i.test(l)) {
+        foundQuestion = l.replace(/^Q:\s*/i, "").trim();
         break;
+      } else if (/Questions for you/i.test(l)) {
+        for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+          if (/^Q:\s*/i.test(lines[j])) {
+            foundQuestion = lines[j].replace(/^Q:\s*/i, "").trim();
+            break;
+          } else if (lines[j].endsWith("?") && lines[j].length > 10) {
+            foundQuestion = lines[j].trim();
+            break;
+          }
+        }
+        if (foundQuestion) break;
       }
+    }
+    data.question = foundQuestion || (data.title ? `What is the key safe working practice for ${data.title}?` : "When must safety procedures be followed on site?");
 
-      // Start parsing body after Summary block or after Outline
-      if (line.includes("Outline:") || line.includes("1.") || line.includes("Overview")) {
-        inBody = true;
+    data.options = [
+      "Always carry out pre-use inspection and follow mandatory site controls",
+      "Safety procedures are optional for experienced workers",
+      "Only report defects if an accident or injury occurs",
+      "Leave hazard management entirely to the next shift",
+    ];
+
+    // 4. Extract Body Content Lines
+    const bodyLines = [];
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+
+      // Filter headers, footers, stamps
+      if (l.includes("Document Owner:") || l.includes("Document Number:") || l.includes("FOR ZERO ACCIDENTS") || l.includes("Page ")) {
+        continue;
       }
-
-      if (!inBody) continue;
-
-      // Skip repeated page header/footer stamps
-      if (
-        line.includes("Document Owner:") ||
-        line.includes("Page ") ||
-        line.includes("FOR ZERO ACCIDENTS") ||
-        (data.doc_code && line.includes(data.doc_code) && line.length < 35)
-      ) {
+      if (data.doc_code && l.includes(data.doc_code) && l.length < 50) {
         continue;
       }
 
-      // Detect Section Heading (e.g. "1. Selection:", "Pre-use checks:", or lines ending in ':')
-      const isHeading =
-        /^[0-9]+\.\s+[A-Za-z]/.test(line) ||
-        (line.length < 50 && line.endsWith(":") && !line.startsWith("•"));
+      // Stop when reaching Questions for you, Signature block, or Notes block
+      if (
+        l.includes("Questions for you") ||
+        l.includes("Do you have any questions for me?") ||
+        l.includes("Date Name Signature Company") ||
+        l.includes("Name Signature Company") ||
+        l.includes("DATE: _____") ||
+        (l.trim() === "Notes" && i > lines.length - 15)
+      ) {
+        break;
+      }
 
-      if (isHeading) {
-        if (currentSection) sections.push(currentSection);
+      // Skip summary block labels
+      if (/^Prepare\s*:/i.test(l) || /^Reason\s*:/i.test(l) || /^Why\s*:/i.test(l) || /^Outline\s*:/i.test(l)) {
+        continue;
+      }
+
+      bodyLines.push(l);
+    }
+
+    // Parse bodyLines into sections & points
+    const sections = [];
+    let currentSection = null;
+
+    for (let i = 0; i < bodyLines.length; i++) {
+      const l = bodyLines[i].trim();
+      if (!l) continue;
+
+      // Filter out orphaned summary words on page 1 if any leaked
+      if (sections.length === 0 && (l === "ready?" || l.startsWith("distractions?") || l.startsWith("accident") || l.startsWith("increasing on site"))) {
+        continue;
+      }
+
+      const trimmedColon = l.endsWith(":") || l.endsWith(" :") || l.endsWith("?");
+      const numberedHeading = /^[0-9]+[\.\)]\s+[A-Za-z]/.test(l);
+      const isBullet = l.startsWith("•") || l.startsWith("-") || l.startsWith("*") || /^\([a-z0-9]+\)/i.test(l) || /^[0-9]+\)\s+/.test(l);
+      const isShortTitle = !isBullet && l.length <= 48 && (trimmedColon || /^[A-Z][A-Za-z0-9\s&/'-]+$/.test(l)) && !l.includes("because") && !l.includes("should") && !l.includes("which");
+
+      if (numberedHeading || trimmedColon || (isShortTitle && l.length > 3)) {
+        if (currentSection && (currentSection.body || currentSection.points.length > 0)) {
+          sections.push(currentSection);
+        }
         currentSection = {
-          title: line.replace(/:$/, "").trim(),
+          title: l.replace(/\s*:$/, "").replace(/:$/, "").trim(),
           body: "",
           points: [],
         };
         continue;
       }
 
-      // Detect Bullet Points
-      const isBullet =
-        line.startsWith("•") ||
-        line.startsWith("-") ||
-        /^\([a-z]\)/i.test(line) ||
-        /^[0-9]+\)\s+/.test(line);
-
       if (isBullet) {
         if (!currentSection) {
-          currentSection = { title: "Safety Instructions", body: "", points: [] };
+          currentSection = { title: data.title || "Safety Instructions", body: "", points: [] };
         }
-        const cleanedBullet = line
+        const cleanPt = l
           .replace(/^[•\-\*]\s*/, "")
-          .replace(/^\([a-z]\)\s*/i, "")
-          .replace(/^[0-9]+\)\s*/, "")
+          .replace(/^\([a-z0-9]+\)\s*/i, "")
+          .replace(/^[0-9]+[\.\)]\s*/, "")
           .trim();
-        if (cleanedBullet) currentSection.points.push(cleanedBullet);
+        if (cleanPt) currentSection.points.push(cleanPt);
       } else {
         if (!currentSection) {
-          currentSection = { title: "Safety Instructions", body: line, points: [] };
+          currentSection = { title: data.title || "Safety Instructions", body: l, points: [] };
         } else if (!currentSection.body) {
-          currentSection.body = line;
+          currentSection.body = l;
         } else {
-          currentSection.body += " " + line;
+          currentSection.body += " " + l;
         }
       }
     }
 
-    if (currentSection) sections.push(currentSection);
+    if (currentSection && (currentSection.body || currentSection.points.length > 0)) {
+      sections.push(currentSection);
+    }
+
+    // Safety fallback: ensure sections is NEVER empty
+    if (sections.length === 0 && bodyLines.length > 0) {
+      sections.push({
+        title: data.title || "Safety Briefing & Key Instructions",
+        body: bodyLines.join(" "),
+        points: [],
+      });
+    }
+
     data.sections = sections;
-
-    // 4. Comprehension Question & Options
-    let foundQuestion = "";
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (/^Q:\s*/i.test(line) || (/Questions for you/i.test(line) && lines[i + 1])) {
-        if (/^Q:\s*/i.test(line)) {
-          foundQuestion = line.replace(/^Q:\s*/i, "").trim();
-        } else if (lines[i + 1] && lines[i + 1].startsWith("Q:")) {
-          foundQuestion = lines[i + 1].replace(/^Q:\s*/i, "").trim();
-        } else {
-          foundQuestion = lines[i + 1].trim();
-        }
-        break;
-      }
-    }
-
-    if (foundQuestion) {
-      data.question = foundQuestion;
-    } else {
-      data.question = `When must a safety inspection be completed before using equipment?`;
-    }
-
-    // Generate 4 plausible options (Option 0 = correct answer based on talk rules)
-    data.options = [
-      "Before every single use (Pre-use check) and tagged out if defective",
-      "Only once per month by a general labourer",
-      "Only after an equipment failure or near miss occurs",
-      "Inspection is never required for short duration tasks",
-    ];
-
     return data;
   }
 

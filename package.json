@@ -12,6 +12,7 @@
     "deploy": "npx wrangler pages deploy public"
   },
   "devDependencies": {
+    "pdfjs-dist": "^3.11.174",
     "wrangler": "^3.114.0"
   }
 }

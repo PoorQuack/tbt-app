@@ -319,7 +319,7 @@
     const content = tbt.content;
     let html = "";
 
-    if (content && content.sections && Array.isArray(content.sections)) {
+    if (content && content.sections && Array.isArray(content.sections) && content.sections.length > 0) {
       content.sections.forEach((sec) => {
         html += `<div class="tbt-section">`;
         if (sec.title) {
@@ -362,6 +362,13 @@
       });
     } else if (content && content.raw) {
       html = `<div class="tbt-section"><p>${escapeHtml(content.raw)}</p></div>`;
+    } else {
+      html = `
+        <div class="tbt-section">
+          <h3>Key Safety Instructions</h3>
+          <p>${escapeHtml(tbt.outline_text || tbt.reason_text || "Please review the safety guidelines and procedures with your supervisor before commencing work.")}</p>
+        </div>
+      `;
     }
 
     html += `
