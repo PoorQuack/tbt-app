@@ -70,12 +70,15 @@
     btnCloseAuditModal: document.getElementById("btn-close-audit-modal"),
     btnCloseAuditModal2: document.getElementById("btn-close-audit-modal2"),
 
-    modalEditPin: document.getElementById("modal-edit-pin"),
-    editPinOpName: document.getElementById("edit-pin-op-name"),
-    editPinInput: document.getElementById("edit-pin-input"),
-    btnClosePinModal: document.getElementById("btn-close-pin-modal"),
-    btnCancelPinModal: document.getElementById("btn-cancel-pin-modal"),
-    btnSavePin: document.getElementById("btn-save-pin"),
+    modalEditOperative: document.getElementById("modal-edit-operative"),
+    editOpName: document.getElementById("edit-op-name"),
+    editOpCompany: document.getElementById("edit-op-company"),
+    editOpRole: document.getElementById("edit-op-role"),
+    editOpTrade: document.getElementById("edit-op-trade"),
+    editOpPin: document.getElementById("edit-op-pin"),
+    btnCloseEditOp: document.getElementById("btn-close-edit-op"),
+    btnCancelEditOp: document.getElementById("btn-cancel-edit-op"),
+    btnSaveEditOp: document.getElementById("btn-save-edit-op"),
 
     modalEditTbtWeek: document.getElementById("modal-edit-tbt-week"),
     editWeekTbtTitle: document.getElementById("edit-week-tbt-title"),
@@ -243,14 +246,14 @@
     });
     elements.btnSaveAdminOp.addEventListener("click", handleSaveAdminOperative);
 
-    // PIN Modal
-    elements.btnClosePinModal.addEventListener("click", () => {
-      elements.modalEditPin.classList.remove("active");
+    // Edit Operative Details Modal
+    elements.btnCloseEditOp.addEventListener("click", () => {
+      elements.modalEditOperative.classList.remove("active");
     });
-    elements.btnCancelPinModal.addEventListener("click", () => {
-      elements.modalEditPin.classList.remove("active");
+    elements.btnCancelEditOp.addEventListener("click", () => {
+      elements.modalEditOperative.classList.remove("active");
     });
-    elements.btnSavePin.addEventListener("click", handleSavePin);
+    elements.btnSaveEditOp.addEventListener("click", handleSaveEditOperative);
 
     // TBT Week Modal
     elements.btnCloseWeekModal.addEventListener("click", () => {
@@ -705,12 +708,15 @@
           </span>
         </td>
         <td>
-          <div style="display: flex; gap: 0.35rem;">
-            <button type="button" class="sig-btn btn-edit-op-pin" data-id="${op.id}" data-name="${escapeHtml(op.name)}" data-pin="${escapeHtml(op.pin || '1234')}">
-              Edit PIN
+          <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+            <button type="button" class="sig-btn btn-edit-op" data-id="${op.id}" data-name="${escapeHtml(op.name)}" data-company="${escapeHtml(op.company)}" data-role="${escapeHtml(op.role || 'Operative')}" data-trade="${escapeHtml(op.trade || 'General')}" data-pin="${escapeHtml(op.pin || '1234')}">
+              Edit
             </button>
             <button type="button" class="sig-btn btn-toggle-op" data-id="${op.id}" data-active="${op.active}">
               ${op.active ? "Deactivate" : "Activate"}
+            </button>
+            <button type="button" class="sig-btn btn-delete-op" data-id="${op.id}" data-name="${escapeHtml(op.name)}" style="color: var(--danger); border-color: #fca5a5;">
+              Delete
             </button>
           </div>
         </td>
@@ -718,13 +724,27 @@
       tbody.appendChild(tr);
     });
 
-    tbody.querySelectorAll(".btn-edit-op-pin").forEach((btn) => {
+    tbody.querySelectorAll(".btn-edit-op").forEach((btn) => {
       btn.addEventListener("click", () => {
         editingOpId = parseInt(btn.dataset.id, 10);
-        elements.editPinOpName.textContent = btn.dataset.name;
-        elements.editPinInput.value = btn.dataset.pin;
-        elements.modalEditPin.classList.add("active");
-        elements.editPinInput.focus();
+        elements.editOpName.value = btn.dataset.name;
+        elements.editOpCompany.value = btn.dataset.company;
+        elements.editOpRole.value = btn.dataset.role;
+        elements.editOpTrade.value = btn.dataset.trade;
+        elements.editOpPin.value = btn.dataset.pin;
+        elements.modalEditOperative.classList.add("active");
+        elements.editOpName.focus();
+      });
+    });
+
+    tbody.querySelectorAll(".btn-delete-op").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = parseInt(btn.dataset.id, 10);
+        const name = btn.dataset.name;
+        if (!confirm(`Are you sure you want to permanently delete operative "${name}"?\n\nNote: Workers with signed legal records cannot be deleted and must be deactivated instead.`)) {
+          return;
+        }
+        await deleteOperative(id, name);
       });
     });
 
@@ -737,10 +757,22 @@
     });
   }
 
-  async function handleSavePin() {
-    const newPin = elements.editPinInput.value.trim();
-    if (!/^\d{4}$/.test(newPin)) {
-      showToast("PIN must be exactly 4 digits (e.g. 1234).", "error");
+  async function handleSaveEditOperative() {
+    const name = elements.editOpName.value.trim();
+    const company = elements.editOpCompany.value.trim() || "Three Eagles Ltd";
+    const role = elements.editOpRole.value.trim() || "Operative";
+    const trade = elements.editOpTrade.value.trim() || "General Labour";
+    const pin = elements.editOpPin.value.trim();
+
+    if (!name) {
+      showToast("Operative full name is required.", "error");
+      elements.editOpName.focus();
+      return;
+    }
+
+    if (!/^\d{4}$/.test(pin)) {
+      showToast("Operative PIN must be exactly 4 digits (e.g. 1234).", "error");
+      elements.editOpPin.focus();
       return;
     }
 
@@ -752,19 +784,56 @@
           "X-Admin-PIN": adminPin,
         },
         body: JSON.stringify({
-          action: "update_pin",
+          action: "update_operative",
           id: editingOpId,
-          pin: newPin,
+          name,
+          company,
+          role,
+          trade,
+          pin,
         }),
       });
       const json = await res.json();
       if (json.success) {
-        showToast("Operative PIN updated!", "success");
-        elements.modalEditPin.classList.remove("active");
+        showToast(`Operative ${name} updated successfully!`, "success");
+        elements.modalEditOperative.classList.remove("active");
         loadOperativesData();
+        if (currentTab === "tab-outstanding") loadOutstandingData();
       } else {
-        showToast(json.error || "Failed to update PIN.", "error");
+        showToast(json.error || "Failed to update operative.", "error");
       }
+    } catch (err) {
+      console.error(err);
+      showToast("Network error updating operative.", "error");
+    }
+  }
+
+  async function deleteOperative(id, name) {
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-PIN": adminPin,
+        },
+        body: JSON.stringify({
+          action: "delete_operative",
+          id: id,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Operative "${name}" deleted successfully.`, "success");
+        loadOperativesData();
+        if (currentTab === "tab-outstanding") loadOutstandingData();
+      } else {
+        showToast(json.error || "Failed to delete operative.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Network error deleting operative.", "error");
+    }
+  }
     } catch (err) {
       console.error(err);
       showToast("Network error updating PIN.", "error");

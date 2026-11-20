@@ -257,7 +257,91 @@ export async function onRequestPost(context) {
       );
     }
 
-    // 2. Edit / Reset Operative PIN
+    // 2. Full Update Operative Details (Name, Company, Role, Trade, PIN)
+    if (action === "update_operative") {
+      const { id, name, company = "Three Eagles Ltd", role = "Operative", trade = "General", pin } = body;
+      const cleanName = (name || "").trim();
+      const cleanPin = String(pin || "").trim();
+
+      if (!id) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Operative ID is required." }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!cleanName) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Operative full name is required." }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!/^\d{4}$/.test(cleanPin)) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Operative PIN must be exactly 4 digits (e.g. 1234)." }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      await db
+        .prepare(
+          "UPDATE operatives SET name = ?, company = ?, role = ?, trade = ?, pin = ? WHERE id = ?"
+        )
+        .bind(
+          cleanName,
+          (company || "Three Eagles Ltd").trim(),
+          (role || "Operative").trim(),
+          (trade || "General").trim(),
+          cleanPin,
+          id
+        )
+        .run();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Operative details for ${cleanName} updated successfully.`,
+          data: { id, name: cleanName, company, role, trade, pin: cleanPin },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Delete Operative (blocked if legal audit signoffs exist)
+    if (action === "delete_operative") {
+      const id = body.id;
+      if (!id) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Operative ID is required." }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const signoffCheck = await db
+        .prepare("SELECT COUNT(*) AS count FROM signoffs WHERE operative_id = ?")
+        .bind(id)
+        .first();
+
+      if (signoffCheck && signoffCheck.count > 0) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Cannot delete operative: ${signoffCheck.count} legal audit sign-off record(s) exist for this worker. Please deactivate the operative instead to preserve statutory HSE safety history.`,
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      await db.prepare("DELETE FROM operatives WHERE id = ?").bind(id).run();
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Operative deleted successfully." }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 4. Edit / Reset Operative PIN (legacy support)
     if (action === "update_pin") {
       const id = body.id;
       const pin = String(body.pin || "").trim();
