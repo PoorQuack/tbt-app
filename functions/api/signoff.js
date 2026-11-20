@@ -12,11 +12,19 @@ export async function onRequestGet(context) {
 
   const url = new URL(context.request.url);
   const docCode = url.searchParams.get("doc_code") || url.searchParams.get("code");
-  const dateFilter = url.searchParams.get("date"); // YYYY-MM-DD or DD/MM/YYYY
+  const briefingWeek = url.searchParams.get("briefing_week") || url.searchParams.get("week");
+  const dateFilter = url.searchParams.get("date");
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "200", 10), 500);
 
   try {
-    let query = "SELECT id, tbt_id, doc_code, tbt_title, doc_owner, last_revision, next_revision, operative_id, operative_name, operative_company, scrolled_to_bottom, comprehension_passed, selected_answer, notes, signature_png, signed_at FROM signoffs WHERE 1=1";
+    let query = `
+      SELECT id, tbt_id, doc_code, tbt_title, doc_owner, last_revision, next_revision,
+             briefing_week, operative_id, operative_name, operative_company,
+             scrolled_to_bottom, comprehension_passed, selected_answer, notes,
+             signature_png, signed_at
+      FROM signoffs
+      WHERE 1=1
+    `;
     const params = [];
 
     if (docCode) {
@@ -24,8 +32,12 @@ export async function onRequestGet(context) {
       params.push(docCode);
     }
 
+    if (briefingWeek) {
+      query += " AND briefing_week = ?";
+      params.push(briefingWeek);
+    }
+
     if (dateFilter) {
-      // Support matching date portion of signed_at
       query += " AND (date(signed_at) = date(?) OR signed_at LIKE ?)";
       params.push(dateFilter, `${dateFilter}%`);
     }
@@ -64,6 +76,7 @@ export async function onRequestPost(context) {
     const {
       doc_code,
       operative_id,
+      pin,
       scrolled_to_bottom,
       answer_index,
       notes = "",
@@ -80,7 +93,7 @@ export async function onRequestPost(context) {
 
     const tbt = await db
       .prepare(
-        "SELECT id, doc_code, title, doc_owner, last_revision, next_revision, correct_option_index, comprehension_options_json FROM tbts WHERE (doc_code = ? OR id = ?) AND active = 1"
+        "SELECT id, doc_code, title, doc_owner, last_revision, next_revision, briefing_week, correct_option_index, comprehension_options_json FROM tbts WHERE (doc_code = ? OR id = ?) AND active = 1"
       )
       .bind(doc_code, doc_code)
       .first();
@@ -92,7 +105,9 @@ export async function onRequestPost(context) {
       );
     }
 
-    // 2. Validate operative_id
+    const briefingWeek = tbt.briefing_week || "Week 1";
+
+    // 2. Validate operative_id & 4-digit PIN
     if (!operative_id) {
       return new Response(
         JSON.stringify({ success: false, error: "Please select an operative." }),
@@ -101,7 +116,7 @@ export async function onRequestPost(context) {
     }
 
     const operative = await db
-      .prepare("SELECT id, name, company FROM operatives WHERE id = ? AND active = 1")
+      .prepare("SELECT id, name, company, pin FROM operatives WHERE id = ? AND active = 1")
       .bind(operative_id)
       .first();
 
@@ -109,6 +124,20 @@ export async function onRequestPost(context) {
       return new Response(
         JSON.stringify({ success: false, error: "Operative profile not found or inactive." }),
         { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // PIN Authentication Check (returns HTTP 401 if wrong)
+    const submittedPin = String(pin || "").trim();
+    const storedPin = String(operative.pin || "1234").trim();
+
+    if (!submittedPin || submittedPin !== storedPin) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Incorrect 4-digit operative PIN. Please verify your PIN with your site supervisor.",
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -135,37 +164,38 @@ export async function onRequestPost(context) {
       );
     }
 
-    // 5. UK Legal Defensibility Check 3: Valid signature image
+    // 5. UK Legal Defensibility Check 3: Valid signature image (raised length check)
     if (
       !signature_png ||
       typeof signature_png !== "string" ||
       !signature_png.startsWith("data:image/png;base64,") ||
-      signature_png.length < 200
+      signature_png.length < 500
     ) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "A valid digital signature drawing is mandatory for legal defensibility.",
+          error: "A valid digital signature drawing is mandatory. Single dots or blank taps are legally invalid.",
         }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Prevent duplicate sign-offs on the same day for same TBT and operative
+    // 6. Check unique weekly sign-off: Prevent duplicate sign-off for this briefing week (HTTP 409)
     const existing = await db
       .prepare(
-        "SELECT id, signed_at FROM signoffs WHERE doc_code = ? AND operative_id = ? AND date(signed_at) = date('now')"
+        "SELECT id, signed_at FROM signoffs WHERE doc_code = ? AND operative_id = ? AND briefing_week = ?"
       )
-      .bind(tbt.doc_code, operative.id)
+      .bind(tbt.doc_code, operative.id, briefingWeek)
       .first();
 
     if (existing) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `${operative.name} has already signed off ${tbt.doc_code} today. Duplicate submission rejected.`,
+          error: `${operative.name} has already signed off ${tbt.doc_code} for ${briefingWeek}. Duplicate submission rejected.`,
           already_signed: true,
           signed_at: existing.signed_at,
+          briefing_week: briefingWeek,
         }),
         { status: 409, headers: { "Content-Type": "application/json" } }
       );
@@ -189,15 +219,15 @@ export async function onRequestPost(context) {
     const userAgent = context.request.headers.get("user-agent") || "";
     const nowIso = new Date().toISOString();
 
-    // 6. Insert immutable sign-off record
+    // 7. Insert immutable sign-off record including briefing_week
     const result = await db
       .prepare(
         `INSERT INTO signoffs (
           tbt_id, doc_code, tbt_title, doc_owner, last_revision, next_revision,
-          operative_id, operative_name, operative_company,
+          briefing_week, operative_id, operative_name, operative_company,
           scrolled_to_bottom, comprehension_passed, selected_answer,
           notes, signature_png, user_agent, client_ip, signed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?, ?, ?, ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         tbt.id,
@@ -206,6 +236,7 @@ export async function onRequestPost(context) {
         tbt.doc_owner,
         tbt.last_revision,
         tbt.next_revision,
+        briefingWeek,
         operative.id,
         operative.name,
         operative.company,
@@ -225,6 +256,7 @@ export async function onRequestPost(context) {
         data: {
           record_id: result.meta?.last_row_id,
           doc_code: tbt.doc_code,
+          briefing_week: briefingWeek,
           operative_name: operative.name,
           operative_company: operative.company,
           signed_at: nowIso,

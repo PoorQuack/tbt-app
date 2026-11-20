@@ -39,7 +39,7 @@
   <!-- Main Body Content -->
   <main class="main-content">
 
-    <!-- TBT Selector Bar -->
+    <!-- TBT Selector Bar (Populated Dynamically via GET /api/tbts) -->
     <div class="selector-bar">
       <div class="selector-label">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -52,10 +52,7 @@
         <span>Active Toolbox Talk:</span>
       </div>
       <select id="tbt-select" class="tbt-select" aria-label="Select Toolbox Talk">
-        <option value="AVC032" selected>AVC032 - Safe Use of Step Ladder</option>
-        <option value="AVC011">AVC011 - Personal Protective Equipment (PPE)</option>
-        <option value="AVC022">AVC022 - Dust Kills - Control of Dust Hazards</option>
-        <option value="AVC024">AVC024 - Housekeeping & Site Waste Management</option>
+        <option value="" disabled selected>Loading available Toolbox Talks...</option>
       </select>
     </div>
 
@@ -69,30 +66,31 @@
         </div>
       </div>
       <div class="banner-slate-strip">
-        <h2 id="doc-title-text" class="banner-title">Safe Use of Step Ladder AVC032</h2>
-        <span id="doc-category-badge" class="banner-badge">Working at Height</span>
+        <h2 id="doc-title-text" class="banner-title">Loading Toolbox Talk...</h2>
+        <span id="doc-category-badge" class="banner-badge">Safety</span>
       </div>
       <div class="doc-metadata-bar">
         <span>Owner: <strong id="doc-owner-text">Operations Director</strong></span>
-        <span>Document No: <strong id="doc-code-text">AVC032</strong></span>
-        <span>Last Revision (LR): <strong id="doc-lr-text">05/01/2026</strong></span>
-        <span>Next Revision (NR): <strong id="doc-nr-text">04/01/2028</strong></span>
+        <span>Document No: <strong id="doc-code-text">...</strong></span>
+        <span>Cycle: <strong id="doc-week-text" style="color: var(--primary);">Week 1</strong></span>
+        <span>Last Revision (LR): <strong id="doc-lr-text">--/--/----</strong></span>
+        <span>Next Revision (NR): <strong id="doc-nr-text">--/--/----</strong></span>
       </div>
     </section>
 
     <!-- Official PDF Page 1 Box: Prepare / Reason / Why / Outline -->
     <div class="official-summary-box">
       <div class="summary-item">
-        <strong>Prepare:</strong> <span id="summary-prepare">Quiet location? No distractions? Talk aids ready?</span>
+        <strong>Prepare:</strong> <span id="summary-prepare">Loading...</span>
       </div>
       <div class="summary-item">
-        <strong>Reason:</strong> <span id="summary-reason">To ensure operatives understand the risk of working at height and are safely working with step ladders.</span>
+        <strong>Reason:</strong> <span id="summary-reason">Loading...</span>
       </div>
       <div class="summary-item">
-        <strong>Why:</strong> <span id="summary-why">To prevent injuries from falls from step ladder</span>
+        <strong>Why:</strong> <span id="summary-why">Loading...</span>
       </div>
       <div class="summary-item">
-        <strong>Outline:</strong> <span id="summary-outline">This TBT covers the safe use of step ladders.</span>
+        <strong>Outline:</strong> <span id="summary-outline">Loading...</span>
       </div>
     </div>
 
@@ -117,9 +115,8 @@
 
       <!-- Scrollable Text Area -->
       <div id="tbt-content-container" class="tbt-body-scrollable">
-        <!-- Rendered dynamically via app.js -->
         <div class="tbt-loading-state" style="text-align: center; padding: 2rem; color: #64748b;">
-          Loading Toolbox Talk content...
+          Loading Toolbox Talk material...
         </div>
       </div>
     </section>
@@ -155,7 +152,7 @@
 
           <div id="comprehension-box" style="display: none;">
             <div id="comprehension-question-text" class="question-prompt">
-              Q: When should you carry out a Pre-use check?
+              Q: Loading question...
             </div>
             <div id="comprehension-options-container" class="options-list">
               <!-- Options injected dynamically -->
@@ -164,11 +161,11 @@
           </div>
         </div>
 
-        <!-- Step 2: Operative Profile Selection (Locked until comprehension passed) -->
+        <!-- Step 2: Operative Profile Selection & 4-Digit Security PIN (Locked until comprehension passed) -->
         <div id="step-operative" class="step-block step-locked">
           <div class="step-title">
             <span class="step-number">2</span>
-            <span>Operative Details</span>
+            <span>Operative Authentication & Details</span>
           </div>
 
           <div class="form-grid">
@@ -181,6 +178,12 @@
             </div>
 
             <div class="form-group">
+              <label for="operative-pin">4-Digit Security PIN *</label>
+              <input type="password" id="operative-pin" class="form-control" placeholder="4-digit PIN (default: 1234)" inputmode="numeric" pattern="\d{4}" maxlength="4" autocomplete="off" disabled>
+              <small style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Default PIN is 1234. Contact supervisor if reset.</small>
+            </div>
+
+            <div class="form-group" style="grid-column: 1 / -1;">
               <label for="operative-company">Company / Subcontractor *</label>
               <input type="text" id="operative-company" class="form-control" value="Three Eagles Ltd" readonly>
             </div>
@@ -194,23 +197,23 @@
             <span>Questions / Hazards Identified / Notes (Optional)</span>
           </div>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-            Mirrors the official AIM TBT Notes box: Note any site-specific questions, defective ladders tagged out, or height hazards raised.
+            Mirrors the official AIM TBT Notes box: Note any site-specific questions, defective items tagged out, or height hazards raised.
           </p>
           <textarea id="tbt-notes" class="form-control textarea-control" placeholder="Enter any notes, questions asked, or hazards reported... (Leave blank if none)" disabled></textarea>
         </div>
 
-        <!-- Step 4: Digital Signature Pad (Locked until comprehension passed & operative selected) -->
+        <!-- Step 4: Digital Signature Pad (Locked until comprehension passed & operative authenticated) -->
         <div id="step-signature" class="step-block step-locked">
           <div class="step-title">
             <span class="step-number">4</span>
-            <span>Operative Signature *</span>
+            <span>Operative Digital Signature *</span>
           </div>
 
           <div class="signature-wrapper">
             <div class="signature-canvas-container">
               <canvas id="signature-canvas"></canvas>
               <div id="signature-hint" class="canvas-placeholder-hint">
-                Draw your legal signature here with finger or stylus
+                Draw your full legal signature here with finger or stylus
               </div>
             </div>
             <div class="signature-toolbar">
@@ -230,7 +233,7 @@
         <div class="step-block">
           <div class="legal-declaration-box">
             <strong>UK Health & Safety at Work etc. Act 1974 Declaration:</strong><br>
-            I confirm that I have reviewed the entirety of this Toolbox Talk (<span id="declaration-doc-code">AVC032</span>), have answered the comprehension question, had the opportunity to raise questions and hazards, and agree to follow all safe working procedures outlined on site.
+            I confirm that I have reviewed the entirety of this Toolbox Talk (<span id="declaration-doc-code">...</span> - <span id="declaration-doc-week">Week 1</span>), have answered the comprehension check, entered my PIN, had the opportunity to raise questions, and agree to strictly follow all site safety procedures.
           </div>
 
           <button type="button" id="btn-submit-signoff" class="btn-submit" disabled>
@@ -255,21 +258,25 @@
       </div>
       <div class="modal-body">
         <form id="form-add-operative">
-          <div class="form-group" style="margin-bottom: 1rem;">
+          <div class="form-group" style="margin-bottom: 0.85rem;">
             <label for="new-op-name">Full Name *</label>
             <input type="text" id="new-op-name" class="form-control" placeholder="e.g. Andrei Bobaru" required>
           </div>
-          <div class="form-group" style="margin-bottom: 1rem;">
+          <div class="form-group" style="margin-bottom: 0.85rem;">
             <label for="new-op-company">Company / Subcontractor *</label>
             <input type="text" id="new-op-company" class="form-control" value="Three Eagles Ltd" required>
           </div>
-          <div class="form-group" style="margin-bottom: 1rem;">
+          <div class="form-group" style="margin-bottom: 0.85rem;">
             <label for="new-op-role">Role / Position</label>
             <input type="text" id="new-op-role" class="form-control" placeholder="e.g. Labourer, Carpenter, Painter">
           </div>
-          <div class="form-group">
+          <div class="form-group" style="margin-bottom: 0.85rem;">
             <label for="new-op-trade">Trade</label>
             <input type="text" id="new-op-trade" class="form-control" placeholder="e.g. General Labour, Carpentry">
+          </div>
+          <div class="form-group">
+            <label for="new-op-pin">Choose 4-Digit PIN (Default: 1234)</label>
+            <input type="password" id="new-op-pin" class="form-control" placeholder="1234" inputmode="numeric" maxlength="4">
           </div>
         </form>
       </div>
@@ -297,11 +304,12 @@
           Thank you, <span id="receipt-op-name">Operative</span>!
         </div>
         <p style="font-size: 0.9rem; color: #475569; margin-bottom: 1.25rem;">
-          Your attendance and comprehension sign-off for <strong id="receipt-tbt-code">AVC032</strong> has been securely logged with an immutable UK audit timestamp.
+          Your attendance and comprehension sign-off for <strong id="receipt-tbt-code">...</strong> (<span id="receipt-week">Week 1</span>) has been securely logged with an immutable UK audit timestamp.
         </p>
 
         <div style="background-color: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; text-align: left; font-size: 0.85rem; margin-bottom: 1.5rem;">
           <div style="margin-bottom: 0.4rem;"><strong>Record ID:</strong> #<span id="receipt-record-id">101</span></div>
+          <div style="margin-bottom: 0.4rem;"><strong>Briefing Week:</strong> <span id="receipt-briefing-week">Week 1</span></div>
           <div style="margin-bottom: 0.4rem;"><strong>Signed Timestamp:</strong> <span id="receipt-timestamp">2026-11-20 11:30 UTC</span></div>
           <div style="margin-bottom: 0.4rem;"><strong>Company:</strong> <span id="receipt-company">Three Eagles Ltd</span></div>
           <div><strong>HSE Status:</strong> <span style="color: var(--success); font-weight: 700;">Verified & Legal</span></div>

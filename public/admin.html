@@ -36,7 +36,7 @@
 
   <main class="main-content">
 
-    <!-- Auth PIN Gate (if not authenticated) -->
+    <!-- Auth PIN Gate (Header-based authentication) -->
     <section id="auth-gate-card" class="content-card" style="max-width: 420px; margin: 3rem auto; padding: 2rem;">
       <div style="text-align: center; margin-bottom: 1.5rem;">
         <div style="background-color: var(--primary-light); color: var(--primary); width: 56px; height: 56px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;">
@@ -47,7 +47,7 @@
         </div>
         <h2 style="font-size: 1.25rem; color: var(--secondary);">Supervisor Access Gate</h2>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem;">
-          Enter site supervisor PIN to view audit logs and export official sign-off registers.
+          Enter supervisor PIN to access compliance registers, PIN resets, and audit logs.
         </p>
       </div>
 
@@ -77,7 +77,7 @@
           <div id="stat-today-signoffs" class="stat-value" style="color: var(--primary);">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-title">Registered Operatives</div>
+          <div class="stat-title">Active Operatives</div>
           <div id="stat-total-operatives" class="stat-value">0</div>
         </div>
         <div class="stat-card">
@@ -89,24 +89,25 @@
       <!-- Navigation Tabs -->
       <nav class="admin-tabs no-print">
         <button type="button" class="tab-btn active" data-tab="tab-register">Official A4 Register (Print / PDF)</button>
+        <button type="button" class="tab-btn" data-tab="tab-outstanding">Outstanding Operatives (WhatsApp)</button>
         <button type="button" class="tab-btn" data-tab="tab-audit">Immutable Audit Log</button>
-        <button type="button" class="tab-btn" data-tab="tab-operatives">Operatives Directory</button>
+        <button type="button" class="tab-btn" data-tab="tab-operatives">Operatives Directory & PINs</button>
         <button type="button" class="tab-btn" data-tab="tab-tbts">TBT Document Library</button>
       </nav>
 
       <!-- TAB 1: OFFICIAL A4 REGISTER (PRINTABLE / PDF EXPORT) -->
       <section id="tab-register" class="tab-content">
-        <!-- Controls Bar -->
         <div class="selector-bar no-print">
           <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
             <div class="form-group" style="margin: 0;">
               <label for="filter-register-tbt" style="font-size: 0.75rem;">Select TBT:</label>
               <select id="filter-register-tbt" class="form-control" style="min-height: 38px; font-weight: 600;">
-                <option value="AVC032" selected>AVC032 - Safe Use of Step Ladder</option>
-                <option value="AVC011">AVC011 - Personal Protective Equipment (PPE)</option>
-                <option value="AVC022">AVC022 - Dust Kills - Control of Dust Hazards</option>
-                <option value="AVC024">AVC024 - Housekeeping & Site Waste Management</option>
+                <option value="" disabled selected>Loading talks...</option>
               </select>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label for="filter-register-week" style="font-size: 0.75rem;">Briefing Week:</label>
+              <input type="text" id="filter-register-week" class="form-control" placeholder="All Weeks" style="min-height: 38px; max-width: 130px;">
             </div>
             <div class="form-group" style="margin: 0;">
               <label for="filter-register-date" style="font-size: 0.75rem;">Date Filter:</label>
@@ -127,11 +128,10 @@
           </button>
         </div>
 
-        <!-- The Official Printable A4 Register Canvas (Reproducing Page 5 of the PDF) -->
+        <!-- Official Printable A4 Register Canvas (Reproducing Page 5 of the PDF) -->
         <div id="printable-register-container" class="printable-area">
           <div class="official-register-sheet">
 
-            <!-- Official Top Header Bar -->
             <div class="print-header-top">
               <div class="print-title-box">
                 <h1>Toolbox Talk</h1>
@@ -142,13 +142,11 @@
               </div>
             </div>
 
-            <!-- Sub Header -->
             <div class="print-header-sub">
               <span id="print-sub-title">Safe Use of Step Ladder AVC032</span>
-              <span id="print-site-name">AGC South Site - Three Eagles Ltd</span>
+              <span id="print-site-name">AGC South Site - Three Eagles Ltd (<span id="print-sub-week">Week 1</span>)</span>
             </div>
 
-            <!-- The Official 4-Column Register Table: Date | Name | Signature | Company -->
             <table class="register-table">
               <thead>
                 <tr>
@@ -163,7 +161,6 @@
               </tbody>
             </table>
 
-            <!-- Official Legal Footer Strip (matching PDF exactly) -->
             <div class="print-footer-legal">
               <div>
                 Document Owner: <span id="print-footer-owner">Operations Director</span> &nbsp;|&nbsp;
@@ -180,7 +177,50 @@
         </div>
       </section>
 
-      <!-- TAB 2: IMMUTABLE AUDIT LOG & CSV EXPORT -->
+      <!-- TAB 2: OUTSTANDING OPERATIVES PANEL & WHATSAPP REMINDER -->
+      <section id="tab-outstanding" class="tab-content" style="display: none;">
+        <div class="selector-bar">
+          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <div class="form-group" style="margin: 0;">
+              <label for="filter-outstanding-tbt" style="font-size: 0.75rem;">Target TBT:</label>
+              <select id="filter-outstanding-tbt" class="form-control" style="min-height: 38px; font-weight: 600;">
+                <option value="" disabled selected>Loading talks...</option>
+              </select>
+            </div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--secondary); margin-top: 1rem;" id="outstanding-compliance-summary">
+              Compliance: Calculating...
+            </div>
+          </div>
+
+          <button type="button" id="btn-copy-reminder-list" class="btn-submit" style="width: auto; min-height: 40px; padding: 0.5rem 1.25rem; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+            </svg>
+            <span>Copy Reminder List (WhatsApp)</span>
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Operative Name</th>
+                <th>Company</th>
+                <th>Role</th>
+                <th>Trade</th>
+                <th>Current Status</th>
+                <th>Assigned PIN</th>
+              </tr>
+            </thead>
+            <tbody id="outstanding-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 3: IMMUTABLE AUDIT LOG & CSV EXPORT -->
       <section id="tab-audit" class="tab-content" style="display: none;">
         <div class="selector-bar">
           <div style="font-weight: 700; color: var(--secondary);">
@@ -203,6 +243,7 @@
                 <th>ID</th>
                 <th>Timestamp (UTC)</th>
                 <th>TBT Code</th>
+                <th>Cycle</th>
                 <th>Operative Name</th>
                 <th>Company</th>
                 <th>Comprehension</th>
@@ -218,11 +259,11 @@
         </div>
       </section>
 
-      <!-- TAB 3: OPERATIVES DIRECTORY -->
+      <!-- TAB 4: OPERATIVES DIRECTORY & PIN MANAGEMENT -->
       <section id="tab-operatives" class="tab-content" style="display: none;">
         <div class="selector-bar">
           <div style="font-weight: 700; color: var(--secondary);">
-            Site Operatives Roster
+            Site Operatives Roster & PIN Security
           </div>
           <button type="button" id="btn-admin-add-op" class="btn-submit" style="width: auto; min-height: 38px; padding: 0.4rem 1rem; font-size: 0.85rem;">
             + Add New Operative
@@ -238,6 +279,7 @@
                 <th>Company</th>
                 <th>Role</th>
                 <th>Trade</th>
+                <th>4-Digit PIN</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -249,12 +291,15 @@
         </div>
       </section>
 
-      <!-- TAB 4: TBT DOCUMENT LIBRARY -->
+      <!-- TAB 5: TBT DOCUMENT LIBRARY & CYCLE MANAGEMENT -->
       <section id="tab-tbts" class="tab-content" style="display: none;">
         <div class="selector-bar">
           <div style="font-weight: 700; color: var(--secondary);">
-            Standard AIM Toolbox Talk Modules
+            Standard AIM Toolbox Talk Modules & Weekly Cycles
           </div>
+          <button type="button" id="btn-admin-add-tbt" class="btn-submit" style="width: auto; min-height: 38px; padding: 0.4rem 1rem; font-size: 0.85rem;">
+            + Add New Toolbox Talk
+          </button>
         </div>
 
         <div class="table-responsive">
@@ -264,10 +309,11 @@
                 <th>Doc Code</th>
                 <th>Title</th>
                 <th>Category</th>
-                <th>Document Owner</th>
-                <th>Last Revision (LR)</th>
-                <th>Next Revision (NR)</th>
+                <th>Active Cycle</th>
+                <th>Owner</th>
+                <th>Last Revision</th>
                 <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="tbts-table-body">
@@ -288,11 +334,115 @@
         <h3>Sign-Off Legal Audit Record</h3>
         <button type="button" id="btn-close-audit-modal" class="modal-close-btn">&times;</button>
       </div>
-      <div class="modal-body" id="audit-detail-content">
-        <!-- Rendered dynamically -->
-      </div>
+      <div class="modal-body" id="audit-detail-content"></div>
       <div class="modal-footer">
         <button type="button" id="btn-close-audit-modal2" class="sig-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Operative PIN -->
+  <div id="modal-edit-pin" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Edit Operative PIN</h3>
+        <button type="button" id="btn-close-pin-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 1rem; font-size: 0.9rem;">
+          Updating 4-digit PIN for: <strong id="edit-pin-op-name">Operative</strong>
+        </div>
+        <div class="form-group">
+          <label for="edit-pin-input">New 4-Digit PIN *</label>
+          <input type="text" id="edit-pin-input" class="form-control" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="e.g. 1234">
+          <small style="color: var(--text-muted); margin-top: 0.25rem;">Must be exactly 4 numerical digits.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancel-pin-modal" class="sig-btn">Cancel</button>
+        <button type="button" id="btn-save-pin" class="btn-submit" style="width: auto; min-height: 40px; padding: 0.5rem 1.25rem;">Save PIN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Update TBT Weekly Cycle -->
+  <div id="modal-edit-tbt-week" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Update TBT Briefing Cycle</h3>
+        <button type="button" id="btn-close-week-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 1rem; font-size: 0.9rem;">
+          Updating cycle for: <strong id="edit-week-tbt-title">Toolbox Talk</strong>
+        </div>
+        <div class="form-group">
+          <label for="edit-week-input">New Briefing Week Label *</label>
+          <input type="text" id="edit-week-input" class="form-control" placeholder="e.g. Week 2, 2026-W48">
+          <small style="color: var(--text-muted); margin-top: 0.25rem;">
+            Changing this initiates a new required sign-off cycle for this talk while preserving all past historical records.
+          </small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancel-week-modal" class="sig-btn">Cancel</button>
+        <button type="button" id="btn-save-week" class="btn-submit" style="width: auto; min-height: 40px; padding: 0.5rem 1.25rem;">Start New Cycle</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add New TBT -->
+  <div id="modal-add-tbt" class="modal-overlay">
+    <div class="modal-card" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3>Add New Toolbox Talk Module</h3>
+        <button type="button" id="btn-close-add-tbt" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        <form id="form-add-tbt">
+          <div class="form-grid" style="margin-bottom: 0.85rem;">
+            <div class="form-group">
+              <label for="new-tbt-code">Document Code *</label>
+              <input type="text" id="new-tbt-code" class="form-control" placeholder="e.g. AVC050" required>
+            </div>
+            <div class="form-group">
+              <label for="new-tbt-title">Title *</label>
+              <input type="text" id="new-tbt-title" class="form-control" placeholder="e.g. Working in Confined Spaces" required>
+            </div>
+            <div class="form-group">
+              <label for="new-tbt-category">Category</label>
+              <input type="text" id="new-tbt-category" class="form-control" value="High Risk Safety">
+            </div>
+            <div class="form-group">
+              <label for="new-tbt-week">Initial Briefing Week</label>
+              <input type="text" id="new-tbt-week" class="form-control" value="Week 1">
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label for="new-tbt-question">Comprehension Check Question *</label>
+            <input type="text" id="new-tbt-question" class="form-control" placeholder="e.g. What is the minimum team size for confined space entry?" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label for="new-tbt-options">Answer Options (Comma-separated or JSON) *</label>
+            <input type="text" id="new-tbt-options" class="form-control" value="Solo work permitted, Minimum 2 operatives with top-man, Only 1 worker needed" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label for="new-tbt-correct-idx">Correct Option (0-based Index: 0 = first, 1 = second, etc.) *</label>
+            <input type="number" id="new-tbt-correct-idx" class="form-control" min="0" max="5" value="1" required>
+          </div>
+
+          <div class="form-group">
+            <label for="new-tbt-body">Key Safety Instructions / Content Summary *</label>
+            <textarea id="new-tbt-body" class="form-control textarea-control" rows="4" placeholder="Enter key safety points, hazards, and emergency procedures..." required></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancel-add-tbt" class="sig-btn">Cancel</button>
+        <button type="button" id="btn-save-new-tbt" class="btn-submit" style="width: auto; min-height: 40px; padding: 0.5rem 1.25rem;">Create Toolbox Talk</button>
       </div>
     </div>
   </div>
@@ -318,9 +468,13 @@
             <label for="admin-op-role">Role</label>
             <input type="text" id="admin-op-role" class="form-control" placeholder="e.g. Labourer, Painter, Joiner">
           </div>
-          <div class="form-group">
+          <div class="form-group" style="margin-bottom: 0.85rem;">
             <label for="admin-op-trade">Trade</label>
             <input type="text" id="admin-op-trade" class="form-control" placeholder="e.g. General, Finishing">
+          </div>
+          <div class="form-group">
+            <label for="admin-op-pin">Assign 4-Digit PIN (Default: 1234)</label>
+            <input type="text" id="admin-op-pin" class="form-control" maxlength="4" pattern="\d{4}" value="1234">
           </div>
         </form>
       </div>

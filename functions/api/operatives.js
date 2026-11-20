@@ -11,8 +11,11 @@ export async function onRequestGet(context) {
   }
 
   try {
+    // IMPORTANT: Never expose operative PIN in the public operatives directory
     const { results } = await db
-      .prepare("SELECT id, name, company, role, trade FROM operatives WHERE active = 1 ORDER BY name ASC")
+      .prepare(
+        "SELECT id, name, company, role, trade FROM operatives WHERE active = 1 ORDER BY name ASC"
+      )
       .all();
 
     return new Response(
@@ -46,6 +49,10 @@ export async function onRequestPost(context) {
     const role = (body.role || "Operative").trim();
     const trade = (body.trade || "General").trim();
     const phone = (body.phone || "").trim();
+    let pin = (body.pin || "1234").trim();
+    if (!/^\d{4}$/.test(pin)) {
+      pin = "1234";
+    }
 
     if (!name) {
       return new Response(
@@ -56,9 +63,9 @@ export async function onRequestPost(context) {
 
     const result = await db
       .prepare(
-        "INSERT INTO operatives (name, company, role, trade, phone, active) VALUES (?, ?, ?, ?, ?, 1)"
+        "INSERT INTO operatives (name, company, role, trade, phone, pin, active) VALUES (?, ?, ?, ?, ?, ?, 1)"
       )
-      .bind(name, company, role, trade, phone)
+      .bind(name, company, role, trade, phone, pin)
       .run();
 
     return new Response(

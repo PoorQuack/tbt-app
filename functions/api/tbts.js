@@ -17,7 +17,7 @@ export async function onRequestGet(context) {
     if (code) {
       const tbt = await db
         .prepare(
-          "SELECT id, doc_code, title, doc_owner, last_revision, next_revision, category, prepare_text, reason_text, why_text, outline_text, content_json, comprehension_question, comprehension_options_json, correct_option_index, active FROM tbts WHERE (doc_code = ? OR id = ?) AND active = 1"
+          "SELECT id, doc_code, title, doc_owner, last_revision, next_revision, category, briefing_week, prepare_text, reason_text, why_text, outline_text, content_json, comprehension_question, comprehension_options_json, correct_option_index, active FROM tbts WHERE (doc_code = ? OR id = ?) AND active = 1"
         )
         .bind(code, code)
         .first();
@@ -54,6 +54,7 @@ export async function onRequestGet(context) {
             last_revision: tbt.last_revision,
             next_revision: tbt.next_revision,
             category: tbt.category,
+            briefing_week: tbt.briefing_week || "Week 1",
             prepare_text: tbt.prepare_text,
             reason_text: tbt.reason_text,
             why_text: tbt.why_text,
@@ -68,10 +69,10 @@ export async function onRequestGet(context) {
       );
     }
 
-    // Return list of available TBTs
+    // Return list of available TBTs with briefing_week
     const { results } = await db
       .prepare(
-        "SELECT id, doc_code, title, doc_owner, last_revision, next_revision, category FROM tbts WHERE active = 1 ORDER BY doc_code ASC"
+        "SELECT id, doc_code, title, doc_owner, last_revision, next_revision, category, briefing_week FROM tbts WHERE active = 1 ORDER BY doc_code ASC"
       )
       .all();
 

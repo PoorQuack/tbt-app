@@ -1,6 +1,6 @@
 // public/app.js
 // Client-side Application Logic for TBT Digital Sign-Off
-// Features: Dynamic TBT loading, scroll lock, comprehension quiz gate, mobile signature pad
+// Features: Dynamic TBT selector, scroll gate, comprehension gate, 4-digit operative PIN, stroke-validated signature pad
 
 (function () {
   "use strict";
@@ -8,11 +8,14 @@
   // Application State
   const state = {
     currentTbt: null,
+    tbtsList: [],
     operatives: [],
     scrolledToBottom: false,
     comprehensionPassed: false,
     selectedAnswerIndex: null,
     hasSignature: false,
+    strokeDistance: 0,
+    strokePointCount: 0,
     isSubmitting: false,
   };
 
@@ -23,6 +26,7 @@
     docCategoryBadge: document.getElementById("doc-category-badge"),
     docOwnerText: document.getElementById("doc-owner-text"),
     docCodeText: document.getElementById("doc-code-text"),
+    docWeekText: document.getElementById("doc-week-text"),
     docLrText: document.getElementById("doc-lr-text"),
     docNrText: document.getElementById("doc-nr-text"),
     summaryPrepare: document.getElementById("summary-prepare"),
@@ -30,6 +34,7 @@
     summaryWhy: document.getElementById("summary-why"),
     summaryOutline: document.getElementById("summary-outline"),
     declarationDocCode: document.getElementById("declaration-doc-code"),
+    declarationDocWeek: document.getElementById("declaration-doc-week"),
 
     // Scroll & Content
     readingProgressBar: document.getElementById("reading-progress-bar"),
@@ -45,9 +50,10 @@
     comprehensionOptionsContainer: document.getElementById("comprehension-options-container"),
     comprehensionFeedback: document.getElementById("comprehension-feedback"),
 
-    // Step 2: Operative
+    // Step 2: Operative & PIN
     stepOperative: document.getElementById("step-operative"),
     operativeSelect: document.getElementById("operative-select"),
+    operativePin: document.getElementById("operative-pin"),
     operativeCompany: document.getElementById("operative-company"),
     btnQuickAddOperative: document.getElementById("btn-quick-add-operative"),
 
@@ -74,11 +80,14 @@
     newOpCompany: document.getElementById("new-op-company"),
     newOpRole: document.getElementById("new-op-role"),
     newOpTrade: document.getElementById("new-op-trade"),
+    newOpPin: document.getElementById("new-op-pin"),
 
     modalSuccessReceipt: document.getElementById("modal-success-receipt"),
     receiptOpName: document.getElementById("receipt-op-name"),
     receiptTbtCode: document.getElementById("receipt-tbt-code"),
+    receiptWeek: document.getElementById("receipt-week"),
     receiptRecordId: document.getElementById("receipt-record-id"),
+    receiptBriefingWeek: document.getElementById("receipt-briefing-week"),
     receiptTimestamp: document.getElementById("receipt-timestamp"),
     receiptCompany: document.getElementById("receipt-company"),
     btnDoneNextOp: document.getElementById("btn-done-next-op"),
@@ -86,22 +95,20 @@
     toastContainer: document.getElementById("toast-container"),
   };
 
-  // Canvas context & drawing state
   let ctx = null;
   let isDrawing = false;
   let lastX = 0;
   let lastY = 0;
 
-  // Initialize
   async function init() {
     setupCanvas();
     setupEventListeners();
     await loadOperatives();
-    await loadTbt(elements.tbtSelect.value || "AVC032");
+    await loadTbtsDropdown();
   }
 
   // --------------------------------------------------------------------------
-  // Canvas Setup & Pointer Drawing (Mobile & Desktop)
+  // Canvas Setup & Anti-Tap Stroke Validation
   // --------------------------------------------------------------------------
   function setupCanvas() {
     const canvas = elements.signatureCanvas;
@@ -111,7 +118,6 @@
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       
-      // Store current drawing before resizing
       let prevImg = null;
       if (state.hasSignature && canvas.width > 0) {
         prevImg = canvas.toDataURL();
@@ -138,7 +144,6 @@
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
 
-    // Pointer events for touch, stylus, and mouse
     function getPointerPos(e) {
       const rect = canvas.getBoundingClientRect();
       return {
@@ -148,12 +153,13 @@
     }
 
     canvas.addEventListener("pointerdown", (e) => {
-      if (!state.comprehensionPassed) return;
+      if (!state.comprehensionPassed || !elements.operativeSelect.value) return;
       canvas.setPointerCapture(e.pointerId);
       isDrawing = true;
       const pos = getPointerPos(e);
       lastX = pos.x;
       lastY = pos.y;
+      state.strokePointCount++;
       elements.signatureHint.style.display = "none";
     });
 
@@ -165,11 +171,24 @@
       ctx.lineTo(pos.x, pos.y);
       ctx.stroke();
 
+      const dist = Math.hypot(pos.x - lastX, pos.y - lastY);
+      state.strokeDistance += dist;
+      state.strokePointCount++;
+
       lastX = pos.x;
       lastY = pos.y;
-      state.hasSignature = true;
-      elements.sigStatus.textContent = "Signature captured ✓";
-      elements.sigStatus.style.color = "var(--success)";
+
+      // UK Defensibility: Prevent single-tap dots or blank taps
+      if (state.strokePointCount >= 12 && state.strokeDistance >= 50) {
+        state.hasSignature = true;
+        elements.sigStatus.textContent = "Signature captured ✓";
+        elements.sigStatus.style.color = "var(--success)";
+      } else {
+        state.hasSignature = false;
+        elements.sigStatus.textContent = "Draw full signature (too short)";
+        elements.sigStatus.style.color = "var(--warning)";
+      }
+
       updateSubmitButtonState();
     });
 
@@ -185,7 +204,6 @@
     canvas.addEventListener("pointerup", endDrawing);
     canvas.addEventListener("pointercancel", endDrawing);
 
-    // Clear signature
     elements.btnClearSig.addEventListener("click", clearSignature);
   }
 
@@ -194,6 +212,8 @@
     const rect = canvas.getBoundingClientRect();
     ctx.clearRect(0, 0, rect.width, rect.height);
     state.hasSignature = false;
+    state.strokeDistance = 0;
+    state.strokePointCount = 0;
     elements.signatureHint.style.display = "block";
     elements.sigStatus.textContent = "Awaiting signature";
     elements.sigStatus.style.color = "var(--text-muted)";
@@ -201,8 +221,42 @@
   }
 
   // --------------------------------------------------------------------------
-  // TBT Loading & Rendering
+  // Dynamic TBT Dropdown & Material Loading
   // --------------------------------------------------------------------------
+  async function loadTbtsDropdown() {
+    try {
+      const res = await fetch("/api/tbts");
+      const json = await res.json();
+      if (!json.success || !json.data) {
+        showToast("Failed to fetch Toolbox Talks list.", "error");
+        return;
+      }
+
+      state.tbtsList = json.data;
+      const sel = elements.tbtSelect;
+      sel.innerHTML = "";
+
+      if (json.data.length === 0) {
+        sel.innerHTML = '<option value="" disabled>No active talks available</option>';
+        return;
+      }
+
+      json.data.forEach((t, idx) => {
+        const opt = document.createElement("option");
+        opt.value = t.doc_code;
+        opt.textContent = `${t.doc_code} - ${t.title} (${t.briefing_week || "Week 1"})`;
+        if (idx === 0) opt.selected = true;
+        sel.appendChild(opt);
+      });
+
+      // Load first talk
+      await loadTbt(sel.value);
+    } catch (err) {
+      console.error(err);
+      showToast("Network error loading Toolbox Talks.", "error");
+    }
+  }
+
   async function loadTbt(docCode) {
     elements.tbtContentContainer.innerHTML = `
       <div class="tbt-loading-state" style="text-align: center; padding: 2rem; color: #64748b;">
@@ -210,7 +264,6 @@
       </div>
     `;
 
-    // Reset interaction state
     resetSignoffForm();
 
     try {
@@ -234,16 +287,17 @@
     elements.docCategoryBadge.textContent = tbt.category || "Health & Safety";
     elements.docOwnerText.textContent = tbt.doc_owner || "Operations Director";
     elements.docCodeText.textContent = tbt.doc_code;
+    elements.docWeekText.textContent = tbt.briefing_week || "Week 1";
     elements.docLrText.textContent = tbt.last_revision || "05/01/2026";
     elements.docNrText.textContent = tbt.next_revision || "04/01/2028";
     elements.declarationDocCode.textContent = tbt.doc_code;
+    elements.declarationDocWeek.textContent = tbt.briefing_week || "Week 1";
 
     elements.summaryPrepare.textContent = tbt.prepare_text || "Quiet location? No distractions? Talk aids ready?";
     elements.summaryReason.textContent = tbt.reason_text || "To ensure safe working practice.";
     elements.summaryWhy.textContent = tbt.why_text || "To prevent workplace injuries.";
     elements.summaryOutline.textContent = tbt.outline_text || `Safe work instructions for ${tbt.title}.`;
 
-    // Render HTML Sections into Scrollable Container
     const content = tbt.content;
     let html = "";
 
@@ -292,7 +346,6 @@
       html = `<div class="tbt-section"><p>${escapeHtml(content.raw)}</p></div>`;
     }
 
-    // Official "Do you have any questions for me?" note & Bottom Sentinel
     html += `
       <div style="margin-top: 1.5rem; padding: 1rem; background-color: #f8fafc; border-radius: 6px; border-left: 3px solid var(--secondary);">
         <p style="font-weight: 700; color: var(--secondary); margin-bottom: 0.25rem;">Do you have any questions for me?</p>
@@ -305,7 +358,7 @@
     elements.tbtContentContainer.scrollTop = 0;
     elements.readingProgressBar.style.width = "0%";
 
-    // Render Comprehension Question & Options
+    // Render Comprehension Question
     elements.comprehensionQuestionText.textContent = `Q: ${tbt.comprehension_question}`;
     let optsHtml = "";
     if (tbt.comprehension_options && Array.isArray(tbt.comprehension_options)) {
@@ -324,30 +377,26 @@
   }
 
   // --------------------------------------------------------------------------
-  // UK Defensibility Scroll Monitoring (IntersectionObserver + Scroll event)
+  // UK Defensibility Scroll Monitoring
   // --------------------------------------------------------------------------
   function setupScrollObserver() {
     const container = elements.tbtContentContainer;
     const sentinel = document.getElementById("reading-sentinel");
 
-    // Scroll event for reading progress bar
     container.onscroll = () => {
       const maxScroll = container.scrollHeight - container.clientHeight;
       if (maxScroll > 0) {
         const pct = Math.min(100, Math.round((container.scrollTop / maxScroll) * 100));
         elements.readingProgressBar.style.width = pct + "%";
 
-        // If operative scrolled to within 25px of the absolute bottom
         if (container.scrollTop + container.clientHeight >= container.scrollHeight - 25) {
           triggerScrollUnlocked();
         }
       } else {
-        // Very short content, unlocked immediately
         triggerScrollUnlocked();
       }
     };
 
-    // IntersectionObserver as secondary reliable trigger
     if (sentinel && window.IntersectionObserver) {
       const observer = new IntersectionObserver(
         (entries) => {
@@ -367,7 +416,6 @@
     if (state.scrolledToBottom) return;
     state.scrolledToBottom = true;
 
-    // Update status badge to green
     elements.scrollStatusBadge.classList.remove("pending");
     elements.scrollStatusBadge.classList.add("completed");
     elements.scrollStatusBadge.innerHTML = `
@@ -377,7 +425,6 @@
       <span>Full material reviewed ✓</span>
     `;
 
-    // Unlock Step 1: Comprehension Question
     elements.stepComprehension.classList.remove("step-locked");
     elements.comprehensionLockWarning.style.display = "none";
     elements.comprehensionBox.style.display = "block";
@@ -386,7 +433,7 @@
   }
 
   // --------------------------------------------------------------------------
-  // Operatives Loading & Management
+  // Operatives Directory
   // --------------------------------------------------------------------------
   async function loadOperatives() {
     try {
@@ -418,31 +465,39 @@
   }
 
   // --------------------------------------------------------------------------
-  // Event Listeners & Step Logic
+  // Event Listeners
   // --------------------------------------------------------------------------
   function setupEventListeners() {
-    // TBT dropdown switch
     elements.tbtSelect.addEventListener("change", (e) => {
       loadTbt(e.target.value);
     });
 
-    // Comprehension radio click
     elements.comprehensionOptionsContainer.addEventListener("change", (e) => {
       if (e.target.name === "comprehension-option") {
         handleOptionSelected(parseInt(e.target.value, 10));
       }
     });
 
-    // Operative select change
     elements.operativeSelect.addEventListener("change", (e) => {
       const selected = elements.operativeSelect.options[elements.operativeSelect.selectedIndex];
       if (selected && selected.dataset.company) {
         elements.operativeCompany.value = selected.dataset.company;
       }
+      if (elements.operativeSelect.value) {
+        elements.operativePin.disabled = false;
+        elements.operativePin.focus();
+      } else {
+        elements.operativePin.disabled = true;
+      }
       updateSubmitButtonState();
     });
 
-    // Quick add modal buttons
+    // 4-Digit PIN input filter
+    elements.operativePin.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4);
+      updateSubmitButtonState();
+    });
+
     elements.btnQuickAddOperative.addEventListener("click", () => {
       elements.modalAddOperative.classList.add("active");
     });
@@ -453,26 +508,18 @@
       elements.modalAddOperative.classList.remove("active");
     });
 
-    // Save new operative
     elements.btnSaveNewOp.addEventListener("click", handleSaveNewOperative);
-
-    // Submit sign-off button
     elements.btnSubmitSignoff.addEventListener("click", handleSubmitSignoff);
 
-    // Next operative after success
     elements.btnDoneNextOp.addEventListener("click", () => {
       elements.modalSuccessReceipt.classList.remove("active");
       resetForNextOperative();
     });
   }
 
-  // --------------------------------------------------------------------------
-  // Comprehension Verification Logic
-  // --------------------------------------------------------------------------
   function handleOptionSelected(answerIndex) {
     state.selectedAnswerIndex = answerIndex;
 
-    // Highlight selected card
     const items = elements.comprehensionOptionsContainer.querySelectorAll(".option-item");
     items.forEach((item) => {
       if (parseInt(item.dataset.index, 10) === answerIndex) {
@@ -492,10 +539,9 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="20 6 9 17 4 12"></polyline>
         </svg>
-        <span>Correct! Comprehension verified. You may now complete operative details and sign below.</span>
+        <span>Correct! Comprehension verified. Select your profile, enter your 4-digit PIN, and sign below.</span>
       `;
 
-      // Unlock Steps 2, 3, and 4
       elements.stepOperative.classList.remove("step-locked");
       elements.operativeSelect.disabled = false;
       elements.stepNotes.classList.remove("step-locked");
@@ -512,12 +558,12 @@
           <line x1="12" y1="8" x2="12" y2="12"></line>
           <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
-        <span>Incorrect answer. Please re-read the material above and select the correct answer to unlock signature.</span>
+        <span>Incorrect answer. Please review the material above and choose the correct answer to unlock signature.</span>
       `;
 
-      // Keep subsequent steps locked
       elements.stepOperative.classList.add("step-locked");
       elements.operativeSelect.disabled = true;
+      elements.operativePin.disabled = true;
       elements.stepNotes.classList.add("step-locked");
       elements.tbtNotes.disabled = true;
       elements.stepSignature.classList.add("step-locked");
@@ -526,29 +572,32 @@
     }
   }
 
-  // --------------------------------------------------------------------------
-  // Submit State Validation
-  // --------------------------------------------------------------------------
   function updateSubmitButtonState() {
     const hasOperative = Boolean(elements.operativeSelect.value);
+    const pinVal = (elements.operativePin.value || "").trim();
+    const hasValidPin = /^\d{4}$/.test(pinVal);
+
     const canSubmit =
       state.scrolledToBottom &&
       state.comprehensionPassed &&
       hasOperative &&
+      hasValidPin &&
       state.hasSignature &&
       !state.isSubmitting;
 
     elements.btnSubmitSignoff.disabled = !canSubmit;
   }
 
-  // --------------------------------------------------------------------------
-  // Save New Operative
-  // --------------------------------------------------------------------------
   async function handleSaveNewOperative() {
     const name = elements.newOpName.value.trim();
     const company = elements.newOpCompany.value.trim() || "Three Eagles Ltd";
     const role = elements.newOpRole.value.trim() || "Operative";
     const trade = elements.newOpTrade.value.trim() || "General Labour";
+    let pin = elements.newOpPin.value.trim() || "1234";
+
+    if (!/^\d{4}$/.test(pin)) {
+      pin = "1234";
+    }
 
     if (!name) {
       showToast("Please enter operative full name.", "error");
@@ -563,7 +612,7 @@
       const res = await fetch("/api/operatives", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, company, role, trade }),
+        body: JSON.stringify({ name, company, role, trade, pin }),
       });
       const json = await res.json();
 
@@ -577,12 +626,14 @@
       elements.newOpName.value = "";
       elements.newOpRole.value = "";
       elements.newOpTrade.value = "";
+      elements.newOpPin.value = "";
 
-      // Refresh operatives list and auto-select
       await loadOperatives();
       if (json.data && json.data.id) {
         elements.operativeSelect.value = json.data.id;
         elements.operativeCompany.value = company;
+        elements.operativePin.disabled = false;
+        elements.operativePin.value = pin;
       }
       updateSubmitButtonState();
     } catch (err) {
@@ -594,13 +645,11 @@
     }
   }
 
-  // --------------------------------------------------------------------------
-  // Submit Sign-Off (UK Defensible Snapshot)
-  // --------------------------------------------------------------------------
   async function handleSubmitSignoff() {
     if (elements.btnSubmitSignoff.disabled) return;
 
     const operativeId = elements.operativeSelect.value;
+    const pin = elements.operativePin.value.trim();
     const docCode = state.currentTbt.doc_code;
     const notes = elements.tbtNotes.value.trim();
     const signaturePng = elements.signatureCanvas.toDataURL("image/png");
@@ -621,6 +670,7 @@
         body: JSON.stringify({
           doc_code: docCode,
           operative_id: parseInt(operativeId, 10),
+          pin: pin,
           scrolled_to_bottom: true,
           answer_index: state.selectedAnswerIndex,
           notes: notes,
@@ -632,13 +682,18 @@
 
       if (!json.success) {
         showToast(json.error || "Submission failed.", "error");
+        if (res.status === 401) {
+          elements.operativePin.focus();
+          elements.operativePin.select();
+        }
         return;
       }
 
-      // Display official receipt modal
       elements.receiptOpName.textContent = json.data.operative_name;
       elements.receiptTbtCode.textContent = json.data.doc_code;
+      elements.receiptWeek.textContent = json.data.briefing_week || "Week 1";
       elements.receiptRecordId.textContent = json.data.record_id || "OK";
+      elements.receiptBriefingWeek.textContent = json.data.briefing_week || "Week 1";
       elements.receiptTimestamp.textContent = new Date(json.data.signed_at).toUTCString();
       elements.receiptCompany.textContent = json.data.operative_company;
 
@@ -658,16 +713,14 @@
     }
   }
 
-  // --------------------------------------------------------------------------
-  // Reset Functions
-  // --------------------------------------------------------------------------
   function resetSignoffForm() {
     state.scrolledToBottom = false;
     state.comprehensionPassed = false;
     state.selectedAnswerIndex = null;
     state.hasSignature = false;
+    state.strokeDistance = 0;
+    state.strokePointCount = 0;
 
-    // Reset status pill
     elements.scrollStatusBadge.className = "scroll-status-pill pending";
     elements.scrollStatusBadge.innerHTML = `
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -678,16 +731,16 @@
       <span>Scroll to bottom to unlock sign-off</span>
     `;
 
-    // Lock Step 1
     elements.stepComprehension.classList.add("step-locked");
     elements.comprehensionLockWarning.style.display = "flex";
     elements.comprehensionBox.style.display = "none";
     elements.comprehensionFeedback.style.display = "none";
 
-    // Lock Step 2, 3, 4
     elements.stepOperative.classList.add("step-locked");
     elements.operativeSelect.value = "";
     elements.operativeSelect.disabled = true;
+    elements.operativePin.value = "";
+    elements.operativePin.disabled = true;
 
     elements.stepNotes.classList.add("step-locked");
     elements.tbtNotes.value = "";
@@ -700,23 +753,18 @@
   }
 
   function resetForNextOperative() {
-    // Keep TBT read and comprehension passed if same site supervisor is passing phone around
     elements.operativeSelect.value = "";
+    elements.operativePin.value = "";
     elements.tbtNotes.value = "";
     clearSignature();
     elements.operativeSelect.focus();
     updateSubmitButtonState();
   }
 
-  // --------------------------------------------------------------------------
-  // Utilities & Toast Notifications
-  // --------------------------------------------------------------------------
   function showToast(message, type = "success") {
     const toast = document.createElement("div");
     toast.className = `toast ${type}`;
-    toast.innerHTML = `
-      <span>${escapeHtml(message)}</span>
-    `;
+    toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
     elements.toastContainer.appendChild(toast);
 
     setTimeout(() => {
@@ -736,6 +784,5 @@
       .replace(/'/g, "&#039;");
   }
 
-  // Start on DOM ready
   document.addEventListener("DOMContentLoaded", init);
 })();
