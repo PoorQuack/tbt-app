@@ -12,6 +12,7 @@
   }
 
   let adminPin = sessionStorage.getItem("tbt_admin_pin") || "";
+  let adminCompany = sessionStorage.getItem("tbt_admin_company") || "";
   let currentUser = null; // { role: "super_admin" | "company_admin", account_name, company }
   let currentTab = "tab-register";
   let cachedRecords = [];
@@ -20,11 +21,13 @@
   let currentOutstandingData = null;
   let editingTbtId = null;
   let editingOpId = null;
+  let editingCompanyPinId = null;
 
   // DOM Elements
   const elements = {
     authGateCard: document.getElementById("auth-gate-card"),
     formAuthPin: document.getElementById("form-auth-pin"),
+    adminAuthCompany: document.getElementById("admin-auth-company"),
     adminPinInput: document.getElementById("admin-pin-input"),
     btnTogglePin: document.getElementById("btn-toggle-pin"),
     btnSubmitPin: document.getElementById("btn-submit-pin"),
@@ -160,6 +163,14 @@
     formAddCompany: document.getElementById("form-add-company"),
     newCompanyName: document.getElementById("new-company-name"),
     newCompanyOrder: document.getElementById("new-company-order"),
+    newCompanyPin: document.getElementById("new-company-pin"),
+
+    modalEditCompanyPin: document.getElementById("modal-edit-company-pin"),
+    editCompanyPinTitle: document.getElementById("edit-company-pin-title"),
+    editCompanyPinInput: document.getElementById("edit-company-pin-input"),
+    btnCloseEditCompanyPin: document.getElementById("btn-close-edit-company-pin"),
+    btnCancelEditCompanyPin: document.getElementById("btn-cancel-edit-company-pin"),
+    btnSaveEditCompanyPin: document.getElementById("btn-save-edit-company-pin"),
 
     modalAddAccount: document.getElementById("modal-add-account"),
     btnCloseAddAccount: document.getElementById("btn-close-add-account"),
@@ -174,17 +185,22 @@
   };
 
   function getAdminHeaders(extra = {}) {
-    return {
+    const headers = {
       "X-Admin-PIN": adminPin,
       "Authorization": `Bearer ${adminPin}`,
       ...extra,
     };
+    if (adminCompany) {
+      headers["X-Admin-Company"] = adminCompany;
+    }
+    return headers;
   }
 
-  function init() {
+  async function init() {
     setupEventListeners();
-    if (adminPin) {
-      verifyAndLogin(adminPin);
+    await loadCompaniesList();
+    if (adminPin && adminCompany) {
+      verifyAndLogin(adminCompany, adminPin);
     }
   }
 
@@ -195,12 +211,21 @@
   }
 
   // --------------------------------------------------------------------------
-  // Header-Only Authentication & Role Adapting
+  // Company-Scoped Authentication & Role Adapting
   // --------------------------------------------------------------------------
-  async function verifyAndLogin(pin) {
+  async function verifyAndLogin(company, pin) {
+    const selectedCompany = (company || "").trim();
     const cleanPin = (pin || "").trim();
+
+    if (!selectedCompany) {
+      showAuthError("Please select your company.");
+      if (elements.adminAuthCompany) elements.adminAuthCompany.focus();
+      return;
+    }
+
     if (!cleanPin) {
-      showAuthError("Please enter your Access PIN.");
+      showAuthError("Please enter the security access password.");
+      elements.adminPinInput.focus();
       return;
     }
 
@@ -217,18 +242,19 @@
       const res = await fetch("/api/admin?action=stats", {
         headers: {
           "X-Admin-PIN": cleanPin,
-          "Authorization": `Bearer ${cleanPin}`,
+          "X-Admin-Company": selectedCompany,
+          Authorization: `Bearer ${cleanPin}`,
         },
       });
       json = await res.json();
 
       if (!res.ok || !json.success) {
         sessionStorage.removeItem("tbt_admin_pin");
+        sessionStorage.removeItem("tbt_admin_company");
         adminPin = "";
+        adminCompany = "";
         showAuthError(
-          json.error && !json.error.includes("Header authentication")
-            ? json.error
-            : "Incorrect PIN. Please verify and try again."
+          json.error || "Incorrect security access password for the selected company."
         );
         if (elements.btnSubmitPin) {
           elements.btnSubmitPin.disabled = false;
@@ -248,8 +274,14 @@
 
     // Success!
     adminPin = cleanPin;
+    adminCompany = selectedCompany;
     sessionStorage.setItem("tbt_admin_pin", cleanPin);
-    currentUser = json.data.auth || { role: "super_admin", account_name: "Principal Site Admin", company: null };
+    sessionStorage.setItem("tbt_admin_company", selectedCompany);
+    currentUser = json.data.auth || {
+      role: selectedCompany === "Three Eagles Ltd" ? "super_admin" : "company_admin",
+      account_name: `${selectedCompany} Coordinator`,
+      company: selectedCompany,
+    };
 
     elements.authGateCard.style.display = "none";
     elements.adminPortalView.style.display = "block";
@@ -326,7 +358,9 @@
 
   function handleLogout() {
     sessionStorage.removeItem("tbt_admin_pin");
+    sessionStorage.removeItem("tbt_admin_company");
     adminPin = "";
+    adminCompany = "";
     currentUser = null;
     elements.adminPortalView.style.display = "none";
     elements.authGateCard.style.display = "block";
@@ -334,6 +368,7 @@
     elements.adminAuthBadge.style.display = "none";
     elements.adminPinInput.value = "";
     elements.authPinError.style.display = "none";
+    populateCompanyDropdowns();
   }
 
   // --------------------------------------------------------------------------
@@ -353,6 +388,23 @@
   }
 
   function populateCompanyDropdowns() {
+    // Populate Access Gate Company Dropdown
+    if (elements.adminAuthCompany) {
+      const selected = adminCompany || elements.adminAuthCompany.value;
+      elements.adminAuthCompany.innerHTML = '<option value="" disabled selected>-- Select Your Company --</option>';
+      cachedCompanies.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.name;
+        opt.textContent = c.is_default
+          ? `${c.name} (Site Management / Principal Contractor)`
+          : c.name;
+        if (selected ? c.name === selected : c.is_default) {
+          opt.selected = true;
+        }
+        elements.adminAuthCompany.appendChild(opt);
+      });
+    }
+
     const filterDropdowns = [
       elements.filterRegisterCompany,
       elements.filterOutstandingCompany,
@@ -439,9 +491,9 @@
   function setupEventListeners() {
     elements.formAuthPin.addEventListener("submit", (e) => {
       e.preventDefault();
+      const comp = elements.adminAuthCompany ? elements.adminAuthCompany.value.trim() : "";
       const pin = elements.adminPinInput.value.trim();
-      if (!pin) return;
-      verifyAndLogin(pin);
+      verifyAndLogin(comp, pin);
     });
 
     if (elements.btnTogglePin) {
@@ -579,6 +631,20 @@
     }
     if (elements.btnSaveNewCompany) {
       elements.btnSaveNewCompany.addEventListener("click", handleSaveNewCompany);
+    }
+
+    if (elements.btnCloseEditCompanyPin) {
+      elements.btnCloseEditCompanyPin.addEventListener("click", () => {
+        elements.modalEditCompanyPin.classList.remove("active");
+      });
+    }
+    if (elements.btnCancelEditCompanyPin) {
+      elements.btnCancelEditCompanyPin.addEventListener("click", () => {
+        elements.modalEditCompanyPin.classList.remove("active");
+      });
+    }
+    if (elements.btnSaveEditCompanyPin) {
+      elements.btnSaveEditCompanyPin.addEventListener("click", handleSaveCompanyPin);
     }
 
     if (elements.btnAdminAddAccount) {
@@ -1422,21 +1488,40 @@
         </td>
         <td>${comp.display_order}</td>
         <td>
+          <code style="background: #f1f5f9; padding: 0.2rem 0.45rem; border-radius: 4px; font-weight: 700; color: var(--secondary);">
+            ${escapeHtml(comp.access_pin || "2026")}
+          </code>
+        </td>
+        <td>
           <span style="font-weight: 700; color: ${comp.active ? "var(--success)" : "var(--danger)"};">
             ${comp.active ? "Active" : "Inactive"}
           </span>
         </td>
         <td>
-          ${
-            comp.is_default
-              ? `<span style="font-size:0.75rem; color:#94a3b8; font-style:italic;">Default (Locked)</span>`
-              : `<button type="button" class="sig-btn btn-toggle-company" data-id="${comp.id}" data-active="${comp.active}">
-                   ${comp.active ? "Deactivate" : "Activate"}
-                 </button>`
-          }
+          <div style="display: flex; gap: 0.35rem; align-items: center;">
+            <button type="button" class="sig-btn btn-change-company-pin" data-id="${comp.id}" data-name="${escapeHtml(comp.name)}" data-pin="${escapeHtml(comp.access_pin || "2026")}">
+              Change Password
+            </button>
+            ${
+              comp.is_default
+                ? `<span style="font-size:0.75rem; color:#94a3b8; font-style:italic;">Default (Locked)</span>`
+                : `<button type="button" class="sig-btn btn-toggle-company" data-id="${comp.id}" data-active="${comp.active}">
+                     ${comp.active ? "Deactivate" : "Activate"}
+                   </button>`
+            }
+          </div>
         </td>
       `;
       tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll(".btn-change-company-pin").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        editingCompanyPinId = parseInt(btn.dataset.id, 10);
+        if (elements.editCompanyPinTitle) elements.editCompanyPinTitle.textContent = btn.dataset.name;
+        if (elements.editCompanyPinInput) elements.editCompanyPinInput.value = btn.dataset.pin || "2026";
+        if (elements.modalEditCompanyPin) elements.modalEditCompanyPin.classList.add("active");
+      });
     });
 
     tbody.querySelectorAll(".btn-toggle-company").forEach((btn) => {
@@ -1451,6 +1536,7 @@
   async function handleSaveNewCompany() {
     const name = elements.newCompanyName.value.trim();
     const order = parseInt(elements.newCompanyOrder.value || "10", 10);
+    const pin = (elements.newCompanyPin?.value || "2026").trim();
 
     if (!name) {
       showToast("Company name is required.", "error");
@@ -1466,6 +1552,7 @@
           action: "add_company",
           name,
           display_order: order,
+          access_pin: pin,
         }),
       });
       const json = await res.json();
@@ -1480,6 +1567,39 @@
     } catch (err) {
       console.error(err);
       showToast("Network error adding company.", "error");
+    }
+  }
+
+  async function handleSaveCompanyPin() {
+    if (!editingCompanyPinId) return;
+    const newPin = (elements.editCompanyPinInput?.value || "").trim();
+    if (!newPin) {
+      showToast("Access password cannot be empty.", "error");
+      if (elements.editCompanyPinInput) elements.editCompanyPinInput.focus();
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          action: "update_company_pin",
+          id: editingCompanyPinId,
+          access_pin: newPin,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast("Company access password updated successfully!", "success");
+        if (elements.modalEditCompanyPin) elements.modalEditCompanyPin.classList.remove("active");
+        await loadCompaniesData();
+      } else {
+        showToast(json.error || "Failed to update company password.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Network error updating company password.", "error");
     }
   }
 
