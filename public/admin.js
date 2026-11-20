@@ -330,7 +330,7 @@
       if (elements.groupFilterOperativesCompany) elements.groupFilterOperativesCompany.style.display = "none";
 
       // If user is on a restricted tab, fall back to register
-      if (["tab-audit", "tab-tbts", "tab-companies"].includes(currentTab)) {
+      if (["tab-audit", "tab-companies"].includes(currentTab)) {
         currentTab = "tab-register";
       }
     } else {

@@ -670,9 +670,18 @@ export async function onRequestPost(context) {
     }
 
     // ------------------------------------------------------------------------
-    // Actions below require super_admin privileges
+    // Actions requiring super_admin privileges (Companies & Coordinator Accounts)
     // ------------------------------------------------------------------------
-    if (auth.role !== "super_admin") {
+    const superAdminOnlyActions = [
+      "add_company",
+      "update_company",
+      "update_company_pin",
+      "toggle_company",
+      "add_account",
+      "toggle_account",
+      "delete_account",
+    ];
+    if (superAdminOnlyActions.includes(action) && auth.role !== "super_admin") {
       return new Response(
         JSON.stringify({ success: false, error: "Forbidden: Super admin privileges required for this action." }),
         { status: 403, headers: { "Content-Type": "application/json" } }
