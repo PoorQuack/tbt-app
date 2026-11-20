@@ -11,26 +11,45 @@ async function getAuth(context, db) {
     reqHeaders.get("admin-pin") ||
     reqHeaders.get("Authorization")?.replace(/^Bearer\s+/i, "");
 
+  const requestCompany =
+    reqHeaders.get("X-Admin-Company") ||
+    reqHeaders.get("x-admin-company") ||
+    reqHeaders.get("Admin-Company") ||
+    reqHeaders.get("admin-company");
+
   if (!requestPin || !requestPin.trim()) return null;
   const pin = requestPin.trim();
+  const selectedCompany = requestCompany && requestCompany.trim() ? requestCompany.trim() : null;
 
-  if (pin === envPin) {
-    return { role: "super_admin", account_name: "Principal Site Admin", company: null };
+  if (selectedCompany === "__SUPER_ADMIN__") {
+    if (pin === envPin) {
+      return { role: "super_admin", company: null };
+    }
+    return null;
   }
 
-  const account = await db
-    .prepare(
-      "SELECT id, account_name, company_name FROM company_accounts WHERE access_pin = ? AND active = 1"
-    )
+  if (selectedCompany) {
+    const row = await db
+      .prepare("SELECT id, name, access_password FROM companies WHERE name = ? AND active = 1")
+      .bind(selectedCompany)
+      .first();
+    if (!row) return null;
+    if (pin === row.access_password || pin === envPin) {
+      return { role: "company_admin", company: row.name };
+    }
+    return null;
+  }
+
+  if (pin === envPin) {
+    return { role: "super_admin", company: null };
+  }
+
+  const comp = await db
+    .prepare("SELECT id, name, access_password FROM companies WHERE access_password = ? AND active = 1")
     .bind(pin)
     .first();
-
-  if (account) {
-    return {
-      role: "company_admin",
-      account_name: account.account_name,
-      company: account.company_name,
-    };
+  if (comp) {
+    return { role: "company_admin", company: comp.name };
   }
 
   return null;

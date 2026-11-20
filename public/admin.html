@@ -55,16 +55,16 @@
 
       <form id="form-auth-pin">
         <div class="form-group" style="margin-bottom: 1rem;">
-          <label for="admin-auth-company">Select Company *</label>
-          <select id="admin-auth-company" class="form-control" required style="min-height: 42px; font-weight: 600;">
-            <option value="" disabled selected>Loading site companies...</option>
+          <label for="login-company-select">Company / Access Level *</label>
+          <select id="login-company-select" class="form-control" required style="min-height: 42px; font-weight: 600;">
+            <option value="" disabled selected>Loading companies...</option>
           </select>
         </div>
 
         <div class="form-group" style="margin-bottom: 1.25rem;">
           <label for="admin-pin-input">Security Access Password *</label>
           <div style="position: relative; display: flex; align-items: center;">
-            <input type="password" id="admin-pin-input" class="form-control" placeholder="Enter security access password" autofocus required autocomplete="current-password" style="padding-right: 2.75rem;">
+            <input type="password" id="admin-pin-input" class="form-control" placeholder="Enter company access password" autofocus required autocomplete="current-password" style="padding-right: 2.75rem;">
             <button type="button" id="btn-toggle-pin" style="position: absolute; right: 0.5rem; background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--text-muted); padding: 0.25rem; line-height: 1;" title="Show/Hide Password" aria-label="Toggle Password Visibility">👁️</button>
           </div>
         </div>
@@ -105,7 +105,7 @@
         <button type="button" class="tab-btn" data-tab="tab-audit" data-role="super_admin">Immutable Audit Log</button>
         <button type="button" class="tab-btn" data-tab="tab-operatives">Operatives Directory</button>
         <button type="button" class="tab-btn" data-tab="tab-tbts" data-role="super_admin">TBT Document Library</button>
-        <button type="button" class="tab-btn" data-tab="tab-companies" data-role="super_admin">Companies & Accounts</button>
+        <button type="button" class="tab-btn" data-tab="tab-companies" data-role="super_admin">Companies & Passwords</button>
       </nav>
 
       <!-- TAB 1: OFFICIAL A4 REGISTER (PRINTABLE / PDF EXPORT) -->
@@ -362,13 +362,13 @@
         </div>
       </section>
 
-      <!-- TAB 6: COMPANIES & ACCOUNTS (SUPER ADMIN ONLY) -->
+      <!-- TAB 6: COMPANIES & PASSWORDS (SUPER ADMIN ONLY) -->
       <section id="tab-companies" class="tab-content" style="display: none;">
         <!-- Companies Sub-Section -->
         <div class="selector-bar" style="margin-bottom: 0.75rem;">
           <div>
-            <div style="font-weight: 700; color: var(--secondary); font-size: 1rem;">Site Companies Directory</div>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">Subcontractors and principal contractors on AGC South Site.</p>
+            <div style="font-weight: 700; color: var(--secondary); font-size: 1rem;">Site Companies & Security Passwords</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.2rem 0 0 0;">Subcontractor and principal contractor security access passwords for AGC South Site.</p>
           </div>
           <button type="button" id="btn-admin-add-company" class="btn-submit" style="width: auto; min-height: 38px; padding: 0.4rem 1rem; font-size: 0.85rem;">
             + Add New Company

@@ -27,7 +27,7 @@
   const elements = {
     authGateCard: document.getElementById("auth-gate-card"),
     formAuthPin: document.getElementById("form-auth-pin"),
-    adminAuthCompany: document.getElementById("admin-auth-company"),
+    loginCompanySelect: document.getElementById("login-company-select") || document.getElementById("admin-auth-company"),
     adminPinInput: document.getElementById("admin-pin-input"),
     btnTogglePin: document.getElementById("btn-toggle-pin"),
     btnSubmitPin: document.getElementById("btn-submit-pin"),
@@ -218,8 +218,8 @@
     const cleanPin = (pin || "").trim();
 
     if (!selectedCompany) {
-      showAuthError("Please select your company.");
-      if (elements.adminAuthCompany) elements.adminAuthCompany.focus();
+      showAuthError("Please select your company or access level.");
+      if (elements.loginCompanySelect) elements.loginCompanySelect.focus();
       return;
     }
 
@@ -389,20 +389,31 @@
 
   function populateCompanyDropdowns() {
     // Populate Access Gate Company Dropdown
-    if (elements.adminAuthCompany) {
-      const selected = adminCompany || elements.adminAuthCompany.value;
-      elements.adminAuthCompany.innerHTML = '<option value="" disabled selected>-- Select Your Company --</option>';
+    if (elements.loginCompanySelect) {
+      const selected = adminCompany || elements.loginCompanySelect.value;
+      elements.loginCompanySelect.innerHTML = `
+        <option value="__SUPER_ADMIN__">Principal Site Admin (All Companies)</option>
+      `;
       cachedCompanies.forEach((c) => {
         const opt = document.createElement("option");
         opt.value = c.name;
         opt.textContent = c.is_default
-          ? `${c.name} (Site Management / Principal Contractor)`
+          ? `${c.name} (Principal Contractor)`
           : c.name;
-        if (selected ? c.name === selected : c.is_default) {
+        if (selected === c.name) {
           opt.selected = true;
         }
-        elements.adminAuthCompany.appendChild(opt);
+        elements.loginCompanySelect.appendChild(opt);
       });
+      if (selected === "__SUPER_ADMIN__") {
+        elements.loginCompanySelect.value = "__SUPER_ADMIN__";
+      } else if (!selected) {
+        // Pre-select Three Eagles Ltd by default if available
+        const defaultComp = cachedCompanies.find((c) => c.is_default);
+        if (defaultComp) {
+          elements.loginCompanySelect.value = defaultComp.name;
+        }
+      }
     }
 
     const filterDropdowns = [
@@ -491,7 +502,7 @@
   function setupEventListeners() {
     elements.formAuthPin.addEventListener("submit", (e) => {
       e.preventDefault();
-      const comp = elements.adminAuthCompany ? elements.adminAuthCompany.value.trim() : "";
+      const comp = elements.loginCompanySelect ? elements.loginCompanySelect.value.trim() : "";
       const pin = elements.adminPinInput.value.trim();
       verifyAndLogin(comp, pin);
     });
@@ -1489,7 +1500,7 @@
         <td>${comp.display_order}</td>
         <td>
           <code style="background: #f1f5f9; padding: 0.2rem 0.45rem; border-radius: 4px; font-weight: 700; color: var(--secondary);">
-            ${escapeHtml(comp.access_pin || "2026")}
+            ${escapeHtml(comp.access_password || comp.access_pin || "1234")}
           </code>
         </td>
         <td>
@@ -1499,7 +1510,7 @@
         </td>
         <td>
           <div style="display: flex; gap: 0.35rem; align-items: center;">
-            <button type="button" class="sig-btn btn-change-company-pin" data-id="${comp.id}" data-name="${escapeHtml(comp.name)}" data-pin="${escapeHtml(comp.access_pin || "2026")}">
+            <button type="button" class="sig-btn btn-change-company-pin" data-id="${comp.id}" data-name="${escapeHtml(comp.name)}" data-pin="${escapeHtml(comp.access_password || comp.access_pin || "1234")}">
               Change Password
             </button>
             ${
@@ -1552,7 +1563,7 @@
           action: "add_company",
           name,
           display_order: order,
-          access_pin: pin,
+          access_password: pin,
         }),
       });
       const json = await res.json();
@@ -1584,9 +1595,9 @@
         method: "POST",
         headers: getAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-          action: "update_company_pin",
+          action: "update_company",
           id: editingCompanyPinId,
-          access_pin: newPin,
+          access_password: newPin,
         }),
       });
       const json = await res.json();

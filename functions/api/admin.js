@@ -22,54 +22,45 @@ async function verifyAdminAuth(context, db) {
   const pin = requestPin.trim();
   const selectedCompany = requestCompany && requestCompany.trim() ? requestCompany.trim() : null;
 
-  // 1. If a specific company was selected on the access gate
-  if (selectedCompany) {
-    const company = await db
-      .prepare("SELECT id, name, is_default, access_pin, active FROM companies WHERE name = ? AND active = 1")
-      .bind(selectedCompany)
-      .first();
-
-    if (!company) return null;
-
-    // PIN is valid if master developer pin matches, or company access_pin matches, or coordinator account matches
-    const matchesMaster = pin === envPin;
-    const matchesCompanyPin = company.access_pin && pin === company.access_pin;
-
-    let matchesAccount = false;
-    let accountName = null;
-    if (!matchesMaster && !matchesCompanyPin) {
-      const account = await db
-        .prepare("SELECT id, account_name FROM company_accounts WHERE company_name = ? AND access_pin = ? AND active = 1")
-        .bind(selectedCompany, pin)
-        .first();
-      if (account) {
-        matchesAccount = true;
-        accountName = account.account_name;
-      }
-    }
-
-    if (!matchesMaster && !matchesCompanyPin && !matchesAccount) {
-      return null;
-    }
-
-    // Three Eagles Ltd is the Principal Contractor & Site Admin (super_admin)
-    if (company.is_default === 1) {
+  // 1. Principal Site Admin (All Companies)
+  if (selectedCompany === "__SUPER_ADMIN__") {
+    if (pin === envPin) {
       return {
         role: "super_admin",
         account_name: "Principal Site Admin",
-        company: company.name,
+        company: null,
       };
     }
+    return null;
+  }
 
-    // Subcontractors (e.g. PME, Avondale, 360, Ruddy, Aquascape) are strictly company_admin
+  // 2. Specific Company Authentication
+  if (selectedCompany) {
+    const row = await db
+      .prepare(
+        "SELECT id, name, access_password FROM companies WHERE name = ? AND active = 1"
+      )
+      .bind(selectedCompany)
+      .first();
+
+    if (!row) return null;
+
+    // Verify against company access_password (or master developer pin)
+    const matchesPassword = row.access_password && pin === row.access_password;
+    const matchesMaster = pin === envPin;
+
+    if (!matchesPassword && !matchesMaster) {
+      return null;
+    }
+
     return {
       role: "company_admin",
-      account_name: accountName || `${company.name} Coordinator`,
-      company: company.name,
+      account_name: `${row.name} Coordinator`,
+      company: row.name,
     };
   }
 
-  // 2. Fallback if no company header was sent (e.g. CLI or direct scripts)
+  // 3. Fallback if no company header was sent (e.g. direct scripts or CLI)
   if (pin === envPin) {
     return {
       role: "super_admin",
@@ -78,32 +69,15 @@ async function verifyAdminAuth(context, db) {
     };
   }
 
-  // Delegated Company Coordinator Account Check
-  const account = await db
-    .prepare(
-      "SELECT id, account_name, company_name FROM company_accounts WHERE access_pin = ? AND active = 1"
-    )
-    .bind(pin)
-    .first();
-
-  if (account) {
-    return {
-      role: "company_admin",
-      account_name: account.account_name,
-      company: account.company_name,
-    };
-  }
-
-  // Company Access PIN Check
   const comp = await db
-    .prepare("SELECT id, name, is_default FROM companies WHERE access_pin = ? AND active = 1")
+    .prepare("SELECT id, name, access_password FROM companies WHERE access_password = ? AND active = 1")
     .bind(pin)
     .first();
 
   if (comp) {
     return {
-      role: comp.is_default === 1 ? "super_admin" : "company_admin",
-      account_name: comp.is_default === 1 ? "Principal Site Admin" : `${comp.name} Coordinator`,
+      role: "company_admin",
+      account_name: `${comp.name} Coordinator`,
       company: comp.name,
     };
   }
@@ -125,7 +99,7 @@ export async function onRequestGet(context) {
     return new Response(
       JSON.stringify({
         success: false,
-        error: "Unauthorized: Valid Admin or Company Coordinator PIN required.",
+        error: "Invalid company or security access password.",
       }),
       { status: 401, headers: { "Content-Type": "application/json" } }
     );
@@ -433,7 +407,7 @@ export async function onRequestGet(context) {
 
       const { results } = await db
         .prepare(
-          "SELECT id, name, is_default, display_order, active, access_pin, created_at FROM companies ORDER BY is_default DESC, display_order ASC, name ASC"
+          "SELECT id, name, access_password, is_default, display_order, active, created_at FROM companies ORDER BY is_default DESC, display_order ASC, name ASC"
         )
         .all();
 
@@ -492,7 +466,7 @@ export async function onRequestPost(context) {
     return new Response(
       JSON.stringify({
         success: false,
-        error: "Unauthorized: Valid Admin or Company Coordinator PIN required.",
+        error: "Invalid company or security access password.",
       }),
       { status: 401, headers: { "Content-Type": "application/json" } }
     );
@@ -526,7 +500,11 @@ export async function onRequestPost(context) {
       }
 
       const active = body.active ? 1 : 0;
-      await db.prepare("UPDATE operatives SET active = ? WHERE id = ?").bind(active, id).run();
+      if (auth.role === "company_admin") {
+        await db.prepare("UPDATE operatives SET active = ? WHERE id = ? AND company = ?").bind(active, id, auth.company).run();
+      } else {
+        await db.prepare("UPDATE operatives SET active = ? WHERE id = ?").bind(active, id).run();
+      }
       return new Response(
         JSON.stringify({ success: true, message: "Operative status updated." }),
         { status: 200, headers: { "Content-Type": "application/json" } }
@@ -572,22 +550,33 @@ export async function onRequestPost(context) {
           );
         }
         company = auth.company;
+        await db
+          .prepare(
+            "UPDATE operatives SET name = ?, role = ?, trade = ? WHERE id = ? AND company = ?"
+          )
+          .bind(
+            cleanName,
+            (role || "Operative").trim(),
+            (trade || "General").trim(),
+            id,
+            auth.company
+          )
+          .run();
       } else {
         company = (body.company || op.company || "Three Eagles Ltd").trim();
+        await db
+          .prepare(
+            "UPDATE operatives SET name = ?, company = ?, role = ?, trade = ? WHERE id = ?"
+          )
+          .bind(
+            cleanName,
+            company,
+            (role || "Operative").trim(),
+            (trade || "General").trim(),
+            id
+          )
+          .run();
       }
-
-      await db
-        .prepare(
-          "UPDATE operatives SET name = ?, company = ?, role = ?, trade = ? WHERE id = ?"
-        )
-        .bind(
-          cleanName,
-          company,
-          (role || "Operative").trim(),
-          (trade || "General").trim(),
-          id
-        )
-        .run();
 
       return new Response(
         JSON.stringify({
@@ -636,7 +625,11 @@ export async function onRequestPost(context) {
         );
       }
 
-      await db.prepare("DELETE FROM operatives WHERE id = ?").bind(id).run();
+      if (auth.role === "company_admin") {
+        await db.prepare("DELETE FROM operatives WHERE id = ? AND company = ?").bind(id, auth.company).run();
+      } else {
+        await db.prepare("DELETE FROM operatives WHERE id = ?").bind(id).run();
+      }
 
       return new Response(
         JSON.stringify({ success: true, message: "Operative deleted successfully." }),
@@ -709,9 +702,11 @@ export async function onRequestPost(context) {
         );
       }
 
+      const accessPassword = (body.access_password || body.access_pin || "1234").trim();
+
       await db
-        .prepare("INSERT INTO companies (name, is_default, display_order, active, access_pin) VALUES (?, 0, ?, 1, ?)")
-        .bind(name, isNaN(displayOrder) ? 10 : displayOrder, accessPin)
+        .prepare("INSERT INTO companies (name, is_default, display_order, active, access_password) VALUES (?, 0, ?, 1, ?)")
+        .bind(name, isNaN(displayOrder) ? 10 : displayOrder, accessPassword)
         .run();
 
       return new Response(
@@ -721,23 +716,40 @@ export async function onRequestPost(context) {
     }
 
     // ------------------------------------------------------------------------
-    // 5b. Update Company Security Access Password (super_admin)
+    // 5b. Update Company Details & Password (super_admin)
     // ------------------------------------------------------------------------
-    if (action === "update_company_pin") {
+    if (action === "update_company" || action === "update_company_pin") {
       const id = body.id;
-      const accessPin = (body.access_pin || "").trim();
+      const name = body.name ? body.name.trim() : null;
+      const accessPassword = (body.access_password || body.access_pin || "").trim();
+      const displayOrder = body.display_order !== undefined ? parseInt(body.display_order, 10) : null;
 
-      if (!id || !accessPin) {
+      if (!id) {
         return new Response(
-          JSON.stringify({ success: false, error: "Company ID and access password are required." }),
+          JSON.stringify({ success: false, error: "Company ID is required." }),
           { status: 400, headers: { "Content-Type": "application/json" } }
         );
       }
 
-      await db.prepare("UPDATE companies SET access_pin = ? WHERE id = ?").bind(accessPin, id).run();
+      const comp = await db.prepare("SELECT id, name, access_password, display_order FROM companies WHERE id = ?").bind(id).first();
+      if (!comp) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Company not found." }),
+          { status: 404, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const finalName = name || comp.name;
+      const finalPassword = accessPassword || comp.access_password;
+      const finalOrder = displayOrder !== null && !isNaN(displayOrder) ? displayOrder : comp.display_order;
+
+      await db
+        .prepare("UPDATE companies SET name = ?, access_password = ?, display_order = ? WHERE id = ?")
+        .bind(finalName, finalPassword, finalOrder, id)
+        .run();
 
       return new Response(
-        JSON.stringify({ success: true, message: "Company security access password updated successfully." }),
+        JSON.stringify({ success: true, message: `Company '${finalName}' updated successfully.` }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
