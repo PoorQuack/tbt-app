@@ -21,7 +21,6 @@
     adminPinInput: document.getElementById("admin-pin-input"),
     btnSubmitPin: document.getElementById("btn-submit-pin"),
     btnTogglePin: document.getElementById("btn-toggle-pin"),
-    btnQuickFillPin: document.getElementById("btn-quick-fill-pin"),
     authPinError: document.getElementById("auth-pin-error"),
     btnLogout: document.getElementById("btn-logout"),
 
@@ -145,7 +144,7 @@
   async function verifyAndLogin(pin) {
     const cleanPin = (pin || "").trim();
     if (!cleanPin) {
-      showAuthError("Please enter the Supervisor Security PIN (Default: 2026).");
+      showAuthError("Please enter the Supervisor Security PIN.");
       return;
     }
 
@@ -173,7 +172,7 @@
         showAuthError(
           json.error && !json.error.includes("Header authentication")
             ? json.error
-            : "Incorrect Supervisor PIN. Default system PIN is 2026."
+            : "Incorrect Supervisor PIN. Please check and try again."
         );
         if (elements.btnSubmitPin) {
           elements.btnSubmitPin.disabled = false;
@@ -282,14 +281,6 @@
           elements.btnTogglePin.textContent = "👁️";
           elements.btnTogglePin.title = "Show PIN";
         }
-      });
-    }
-
-    if (elements.btnQuickFillPin) {
-      elements.btnQuickFillPin.addEventListener("click", () => {
-        elements.adminPinInput.value = "2026";
-        elements.adminPinInput.focus();
-        elements.authPinError.style.display = "none";
       });
     }
 

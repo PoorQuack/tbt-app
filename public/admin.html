@@ -55,12 +55,8 @@
         <div class="form-group" style="margin-bottom: 1.25rem;">
           <label for="admin-pin-input">Supervisor Security PIN</label>
           <div style="position: relative; display: flex; align-items: center;">
-            <input type="password" id="admin-pin-input" class="form-control" placeholder="Default: 2026" autofocus required inputmode="numeric" autocomplete="current-password" style="padding-right: 2.75rem;">
+            <input type="password" id="admin-pin-input" class="form-control" placeholder="Enter supervisor PIN" autofocus required inputmode="numeric" autocomplete="current-password" style="padding-right: 2.75rem;">
             <button type="button" id="btn-toggle-pin" style="position: absolute; right: 0.5rem; background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--text-muted); padding: 0.25rem; line-height: 1;" title="Show/Hide PIN" aria-label="Toggle PIN Visibility">👁️</button>
-          </div>
-          <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.45rem; display: flex; justify-content: space-between; align-items: center;">
-            <span>Default PIN: <strong>2026</strong></span>
-            <button type="button" id="btn-quick-fill-pin" style="background: none; border: none; color: var(--primary); font-size: 0.8rem; font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0;">Auto-Fill 2026</button>
           </div>
         </div>
         <button type="submit" id="btn-submit-pin" class="btn-submit">
@@ -495,7 +491,7 @@
             <input type="text" id="admin-op-trade" class="form-control" placeholder="e.g. General, Finishing">
           </div>
           <div class="form-group">
-            <label for="admin-op-pin">Assign 4-Digit PIN (Default: 1234)</label>
+            <label for="admin-op-pin">Assign 4-Digit Security PIN</label>
             <input type="text" id="admin-op-pin" class="form-control" maxlength="4" pattern="\d{4}" value="1234">
           </div>
         </form>
