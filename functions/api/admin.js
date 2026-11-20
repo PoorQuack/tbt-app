@@ -4,10 +4,14 @@
 
 function verifyAdminAuth(context) {
   const envPin = (context.env.ADMIN_PIN || "2026").trim();
+  const reqHeaders = context.request.headers;
   // Strictly enforce header authentication (query-string ?pin= removed for security)
   const requestPin =
-    context.request.headers.get("X-Admin-PIN") ||
-    context.request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
+    reqHeaders.get("X-Admin-PIN") ||
+    reqHeaders.get("x-admin-pin") ||
+    reqHeaders.get("Admin-PIN") ||
+    reqHeaders.get("admin-pin") ||
+    reqHeaders.get("Authorization")?.replace(/^Bearer\s+/i, "");
 
   return Boolean(requestPin && requestPin.trim() === envPin);
 }

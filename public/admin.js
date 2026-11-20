@@ -19,6 +19,9 @@
     adminPortalView: document.getElementById("admin-portal-view"),
     formAuthPin: document.getElementById("form-auth-pin"),
     adminPinInput: document.getElementById("admin-pin-input"),
+    btnSubmitPin: document.getElementById("btn-submit-pin"),
+    btnTogglePin: document.getElementById("btn-toggle-pin"),
+    btnQuickFillPin: document.getElementById("btn-quick-fill-pin"),
     authPinError: document.getElementById("auth-pin-error"),
     btnLogout: document.getElementById("btn-logout"),
 
@@ -115,42 +118,99 @@
     toastContainer: document.getElementById("toast-container"),
   };
 
-  document.addEventListener("DOMContentLoaded", () => {
+  function getAdminHeaders(extra = {}) {
+    return {
+      "X-Admin-PIN": adminPin,
+      "Authorization": `Bearer ${adminPin}`,
+      ...extra,
+    };
+  }
+
+  function init() {
     setupEventListeners();
     if (adminPin) {
       verifyAndLogin(adminPin);
     }
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 
   // --------------------------------------------------------------------------
   // Header-Only Authentication
   // --------------------------------------------------------------------------
   async function verifyAndLogin(pin) {
+    const cleanPin = (pin || "").trim();
+    if (!cleanPin) {
+      showAuthError("Please enter the Supervisor Security PIN (Default: 2026).");
+      return;
+    }
+
+    if (elements.btnSubmitPin) {
+      elements.btnSubmitPin.disabled = true;
+      elements.btnSubmitPin.textContent = "Verifying...";
+    }
+    if (elements.authPinError) {
+      elements.authPinError.style.display = "none";
+    }
+
+    let json;
     try {
       const res = await fetch("/api/admin?action=stats", {
-        headers: { "X-Admin-PIN": pin },
+        headers: {
+          "X-Admin-PIN": cleanPin,
+          "Authorization": `Bearer ${cleanPin}`,
+        },
       });
-      const json = await res.json();
+      json = await res.json();
 
       if (!res.ok || !json.success) {
         sessionStorage.removeItem("tbt_admin_pin");
         adminPin = "";
-        showAuthError(json.error || "Invalid Security PIN.");
+        showAuthError(
+          json.error && !json.error.includes("Header authentication")
+            ? json.error
+            : "Incorrect Supervisor PIN. Default system PIN is 2026."
+        );
+        if (elements.btnSubmitPin) {
+          elements.btnSubmitPin.disabled = false;
+          elements.btnSubmitPin.textContent = "Authenticate & Access";
+        }
         return;
       }
+    } catch (netErr) {
+      console.error("Network error during admin auth:", netErr);
+      showAuthError("Connection error while authenticating. Check your network.");
+      if (elements.btnSubmitPin) {
+        elements.btnSubmitPin.disabled = false;
+        elements.btnSubmitPin.textContent = "Authenticate & Access";
+      }
+      return;
+    }
 
-      adminPin = pin;
-      sessionStorage.setItem("tbt_admin_pin", pin);
-      elements.authGateCard.style.display = "none";
-      elements.adminPortalView.style.display = "block";
-      elements.btnLogout.style.display = "inline-flex";
+    // Success!
+    adminPin = cleanPin;
+    sessionStorage.setItem("tbt_admin_pin", cleanPin);
+    elements.authGateCard.style.display = "none";
+    elements.adminPortalView.style.display = "block";
+    elements.btnLogout.style.display = "inline-flex";
 
-      renderStats(json.data.stats);
+    if (elements.btnSubmitPin) {
+      elements.btnSubmitPin.disabled = false;
+      elements.btnSubmitPin.textContent = "Authenticate & Access";
+    }
+
+    try {
+      if (json.data && json.data.stats) {
+        renderStats(json.data.stats);
+      }
       await loadDynamicTbts();
       loadTabContent(currentTab);
-    } catch (err) {
-      console.error(err);
-      showAuthError("Connection error while authenticating.");
+    } catch (renderErr) {
+      console.error("Error loading initial dashboard content:", renderErr);
     }
   }
 
@@ -210,6 +270,28 @@
       if (!pin) return;
       verifyAndLogin(pin);
     });
+
+    if (elements.btnTogglePin) {
+      elements.btnTogglePin.addEventListener("click", () => {
+        if (elements.adminPinInput.type === "password") {
+          elements.adminPinInput.type = "text";
+          elements.btnTogglePin.textContent = "🔒";
+          elements.btnTogglePin.title = "Hide PIN";
+        } else {
+          elements.adminPinInput.type = "password";
+          elements.btnTogglePin.textContent = "👁️";
+          elements.btnTogglePin.title = "Show PIN";
+        }
+      });
+    }
+
+    if (elements.btnQuickFillPin) {
+      elements.btnQuickFillPin.addEventListener("click", () => {
+        elements.adminPinInput.value = "2026";
+        elements.adminPinInput.focus();
+        elements.authPinError.style.display = "none";
+      });
+    }
 
     elements.btnLogout.addEventListener("click", handleLogout);
 
@@ -330,7 +412,7 @@
 
     try {
       const res = await fetch(url, {
-        headers: { "X-Admin-PIN": adminPin },
+        headers: getAdminHeaders(),
       });
       const json = await res.json();
       if (!json.success) {
@@ -403,7 +485,7 @@
     const docCode = elements.filterOutstandingTbt.value || "AVC032";
     try {
       const res = await fetch(`/api/admin?action=outstanding&doc_code=${encodeURIComponent(docCode)}`, {
-        headers: { "X-Admin-PIN": adminPin },
+        headers: getAdminHeaders(),
       });
       const json = await res.json();
       if (!json.success) {
@@ -502,7 +584,7 @@
   async function loadAuditData() {
     try {
       const res = await fetch("/api/admin?action=signoffs", {
-        headers: { "X-Admin-PIN": adminPin },
+        headers: getAdminHeaders(),
       });
       const json = await res.json();
       if (!json.success) {
@@ -670,7 +752,7 @@
   async function loadOperativesData() {
     try {
       const res = await fetch("/api/admin?action=operatives", {
-        headers: { "X-Admin-PIN": adminPin },
+        headers: getAdminHeaders(),
       });
       const json = await res.json();
       if (!json.success) {
@@ -779,10 +861,7 @@
     try {
       const res = await fetch("/api/admin", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-PIN": adminPin,
-        },
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "update_operative",
           id: editingOpId,
@@ -812,10 +891,7 @@
     try {
       const res = await fetch("/api/admin", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-PIN": adminPin,
-        },
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "delete_operative",
           id: id,
@@ -834,20 +910,12 @@
       showToast("Network error deleting operative.", "error");
     }
   }
-    } catch (err) {
-      console.error(err);
-      showToast("Network error updating PIN.", "error");
-    }
-  }
 
   async function toggleOperativeStatus(id, newActive) {
     try {
       const res = await fetch("/api/admin", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-PIN": adminPin,
-        },
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "toggle_operative",
           id: id,
@@ -883,10 +951,7 @@
     try {
       const res = await fetch("/api/admin", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-PIN": adminPin,
-        },
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "add_operative",
           name,
@@ -917,7 +982,7 @@
   async function loadTbtsData() {
     try {
       const res = await fetch("/api/admin?action=tbts", {
-        headers: { "X-Admin-PIN": adminPin },
+        headers: getAdminHeaders(),
       });
       const json = await res.json();
       if (!json.success) {
@@ -993,10 +1058,7 @@
     try {
       const res = await fetch("/api/admin", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-PIN": adminPin,
-        },
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "update_tbt",
           id: editingTbtId,
@@ -1022,10 +1084,7 @@
     try {
       const res = await fetch("/api/admin", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-PIN": adminPin,
-        },
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "update_tbt",
           id: id,
@@ -1088,10 +1147,7 @@
     try {
       const res = await fetch("/api/admin", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-PIN": adminPin,
-        },
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "add_tbt",
           doc_code: docCode,

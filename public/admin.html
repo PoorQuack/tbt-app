@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TBT Supervisor Portal & Official A4 Register | Three Eagles Ltd</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23941b1b'/><text x='50' y='65' font-size='50' font-weight='bold' fill='white' text-anchor='middle'>AIM</text></svg>">
 </head>
 <body>
@@ -23,7 +23,7 @@
         </div>
       </div>
       <div class="header-actions">
-        <a href="index.html" class="nav-btn">
+        <a href="/index.html" class="nav-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
           </svg>
@@ -54,7 +54,14 @@
       <form id="form-auth-pin">
         <div class="form-group" style="margin-bottom: 1.25rem;">
           <label for="admin-pin-input">Supervisor Security PIN</label>
-          <input type="password" id="admin-pin-input" class="form-control" placeholder="Default: 2026" autofocus required>
+          <div style="position: relative; display: flex; align-items: center;">
+            <input type="password" id="admin-pin-input" class="form-control" placeholder="Default: 2026" autofocus required inputmode="numeric" autocomplete="current-password" style="padding-right: 2.75rem;">
+            <button type="button" id="btn-toggle-pin" style="position: absolute; right: 0.5rem; background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--text-muted); padding: 0.25rem; line-height: 1;" title="Show/Hide PIN" aria-label="Toggle PIN Visibility">👁️</button>
+          </div>
+          <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.45rem; display: flex; justify-content: space-between; align-items: center;">
+            <span>Default PIN: <strong>2026</strong></span>
+            <button type="button" id="btn-quick-fill-pin" style="background: none; border: none; color: var(--primary); font-size: 0.8rem; font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0;">Auto-Fill 2026</button>
+          </div>
         </div>
         <button type="submit" id="btn-submit-pin" class="btn-submit">
           <span>Authenticate & Access</span>
@@ -502,6 +509,6 @@
 
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="admin.js"></script>
+  <script src="/admin.js"></script>
 </body>
 </html>
